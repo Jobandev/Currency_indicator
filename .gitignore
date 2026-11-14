@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-server/
+.env
+.env.*
+!.env.example
+*service-account*.json
+*-debug.log
+.firebase/
+.tools/
+*.zip
+
+.vercel/
+*firebase-adminsdk*.json
