@@ -1,8 +1,14 @@
 # Deploy RateWatch on Vercel
 
-Prepared 15 November 2026. No deployment has been created yet.
+Production: https://currencyindicators.vercel.app. Verified 15 November 2026.
 
 The Vite frontend is served from dist. /api requests use api/index.ts, which exports the existing Express application without starting a listener. Other application URLs fall back to index.html.
+
+## Automatic deployments
+
+The Vercel project currency_indicators is connected to Jobandev/Currency_indicator on GitHub. The production branch is main. Push commits to that repository and branch to trigger a production deployment, then wait for Ready in Vercel before testing the live site.
+
+The similarly named Jobandev/currency_indicators repository is a different repository and must not be used for this workspace. If access changes, authorize Currency_indicator in the Vercel GitHub App installation settings and reconnect under Vercel project Settings > Git.
 
 ## Create the project
 
