@@ -1,5 +1,5 @@
 import WorldRates from './WorldRates';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeftRight,
@@ -46,6 +46,9 @@ export default function Dashboard() {
     [dataLoading, setDataLoading] = useState(true),
     [tab, setTab] = useState('active'),
     [pair, setPair] = useState<string>('NZD/INR');
+  const [deleteAlert, setDeleteAlert] = useState<Alert | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [marketRates, setMarketRates] = useState<Rate[]>([]);
   const [alertRates, setAlertRates] = useState<Rate[]>([]);
   const allRates = [
@@ -85,6 +88,30 @@ export default function Dashboard() {
     completed = alerts.filter((a) => a.status === 'completed');
   return (
     <Shell>
+      {deleteAlert && (
+        <DeleteAlertDialog
+          alert={deleteAlert}
+          busy={deleting}
+          error={deleteError}
+          onCancel={() => setDeleteAlert(null)}
+          onDelete={async () => {
+            if (deleting) return;
+            setDeleting(true);
+            setDeleteError('');
+            try {
+              await api('/alerts/' + encodeURIComponent(deleteAlert.id), { method: 'DELETE' });
+              setAlerts((current) => current.filter((a) => a.id !== deleteAlert.id));
+              setDeleteAlert(null);
+              toast(deleteAlert.status === 'completed' ? 'Completed alert deleted.' : 'Alert deleted.');
+              reload();
+            } catch (e) {
+              setDeleteError(friendly(e));
+            } finally {
+              setDeleting(false);
+            }
+          }}
+        />
+      )}
       <Verification />
       <div className="page-heading">
         <div>
@@ -252,20 +279,9 @@ export default function Dashboard() {
                         </Link>
                         <button
                           aria-label="Delete alert"
-                          onClick={async () => {
-                            if (
-                              !window.confirm(
-                                'Delete this alert and cancel any queued notification?',
-                              )
-                            )
-                              return;
-                            try {
-                              await api('/alerts/' + a.id, { method: 'DELETE' });
-                              toast('Alert deleted.');
-                              reload();
-                            } catch (e) {
-                              toast(friendly(e));
-                            }
+                          onClick={() => {
+                            setDeleteError('');
+                            setDeleteAlert(a);
                           }}
                         >
                           <Trash2 size={16} />
@@ -358,6 +374,52 @@ export default function Dashboard() {
         provider may offer different rates and charge fees.
       </p>
     </Shell>
+  );
+}
+function DeleteAlertDialog({ alert, busy, error, onCancel, onDelete }: {
+  alert: Alert;
+  busy: boolean;
+  error: string;
+  onCancel: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="delete-alert-dialog"
+      aria-labelledby="delete-alert-title"
+      aria-describedby="delete-alert-description"
+      aria-busy={busy}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onCancel();
+      }}
+    >
+      <span className="delete-alert-icon"><Trash2 size={24} /></span>
+      <h2 id="delete-alert-title">
+        {alert.status === 'completed' ? 'Delete completed alert?' : 'Delete alert?'}
+      </h2>
+      <p id="delete-alert-description">
+        {alert.status === 'completed'
+          ? 'This will permanently remove your completed ' + alert.pair + ' alert from your history. This cannot be undone.'
+          : 'This will permanently delete your ' + alert.pair + ' alert and cancel any queued notification. This cannot be undone.'}
+      </p>
+      {error && <div className="error" role="alert">{error}</div>}
+      <div className="delete-alert-actions">
+        <button type="button" className="button outline" autoFocus disabled={busy} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="button danger" disabled={busy} onClick={() => void onDelete()}>
+          {busy ? 'Deleting...' : 'Delete alert'}
+        </button>
+      </div>
+    </dialog>
   );
 }
 function RateChart({

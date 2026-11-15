@@ -2325,3 +2325,25 @@ legend {
     grid-template-columns: 1fr;
   }
 }
+
+.delete-alert-dialog {
+  width: min(440px, calc(100vw - 32px));
+  margin: auto;
+  padding: 28px;
+  border: 1px solid #e6ebe7;
+  border-radius: 18px;
+  background: #fff;
+  color: #243b30;
+  box-shadow: 0 24px 80px #122b2433;
+}
+.delete-alert-dialog::backdrop { background: #142d2466; }
+.delete-alert-dialog h2 { margin: 16px 0 10px; font-size: 22px; }
+.delete-alert-dialog p { color: #65756c; line-height: 1.6; }
+.delete-alert-icon {
+  display: inline-flex;
+  padding: 12px;
+  border-radius: 50%;
+  background: #fff0ee;
+  color: #b43d34;
+}
+.delete-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
