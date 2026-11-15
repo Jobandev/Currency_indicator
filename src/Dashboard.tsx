@@ -102,7 +102,9 @@ export default function Dashboard() {
               await api('/alerts/' + encodeURIComponent(deleteAlert.id), { method: 'DELETE' });
               setAlerts((current) => current.filter((a) => a.id !== deleteAlert.id));
               setDeleteAlert(null);
-              toast(deleteAlert.status === 'completed' ? 'Completed alert deleted.' : 'Alert deleted.');
+              toast(
+                deleteAlert.status === 'completed' ? 'Completed alert deleted.' : 'Alert deleted.',
+              );
               reload();
             } catch (e) {
               setDeleteError(friendly(e));
@@ -315,6 +317,17 @@ export default function Dashboard() {
             <Trash2 size={16} /> Clear completed
           </button>
         </div>
+        <div className="notification-delivery-tip">
+          <Mail size={20} aria-hidden="true" />
+          <div>
+            <strong>Waiting for your first email alert?</strong>
+            <p>
+              Check your Spam or Junk folder. In Gmail, open the RateWatch email and choose{' '}
+              <strong>Report not spam</strong> or <strong>Not spam</strong>. This helps future
+              alerts reach your inbox. You can also add ratewatch510@gmail.com to your contacts.
+            </p>
+          </div>
+        </div>
         {noticeError ? (
           <div className="error" role="alert">
             {noticeError} <button onClick={reload}>Retry notifications</button>
@@ -376,7 +389,13 @@ export default function Dashboard() {
     </Shell>
   );
 }
-function DeleteAlertDialog({ alert, busy, error, onCancel, onDelete }: {
+function DeleteAlertDialog({
+  alert,
+  busy,
+  error,
+  onCancel,
+  onDelete,
+}: {
   alert: Alert;
   busy: boolean;
   error: string;
@@ -401,21 +420,42 @@ function DeleteAlertDialog({ alert, busy, error, onCancel, onDelete }: {
         if (!busy) onCancel();
       }}
     >
-      <span className="delete-alert-icon"><Trash2 size={24} /></span>
+      <span className="delete-alert-icon">
+        <Trash2 size={24} />
+      </span>
       <h2 id="delete-alert-title">
         {alert.status === 'completed' ? 'Delete completed alert?' : 'Delete alert?'}
       </h2>
       <p id="delete-alert-description">
         {alert.status === 'completed'
-          ? 'This will permanently remove your completed ' + alert.pair + ' alert from your history. This cannot be undone.'
-          : 'This will permanently delete your ' + alert.pair + ' alert and cancel any queued notification. This cannot be undone.'}
+          ? 'This will permanently remove your completed ' +
+            alert.pair +
+            ' alert from your history. This cannot be undone.'
+          : 'This will permanently delete your ' +
+            alert.pair +
+            ' alert and cancel any queued notification. This cannot be undone.'}
       </p>
-      {error && <div className="error" role="alert">{error}</div>}
+      {error && (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
       <div className="delete-alert-actions">
-        <button type="button" className="button outline" autoFocus disabled={busy} onClick={onCancel}>
+        <button
+          type="button"
+          className="button outline"
+          autoFocus
+          disabled={busy}
+          onClick={onCancel}
+        >
           Cancel
         </button>
-        <button type="button" className="button danger" disabled={busy} onClick={() => void onDelete()}>
+        <button
+          type="button"
+          className="button danger"
+          disabled={busy}
+          onClick={() => void onDelete()}
+        >
           {busy ? 'Deleting...' : 'Delete alert'}
         </button>
       </div>

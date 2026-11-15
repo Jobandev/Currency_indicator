@@ -2336,9 +2336,17 @@ legend {
   color: #243b30;
   box-shadow: 0 24px 80px #122b2433;
 }
-.delete-alert-dialog::backdrop { background: #142d2466; }
-.delete-alert-dialog h2 { margin: 16px 0 10px; font-size: 22px; }
-.delete-alert-dialog p { color: #65756c; line-height: 1.6; }
+.delete-alert-dialog::backdrop {
+  background: #142d2466;
+}
+.delete-alert-dialog h2 {
+  margin: 16px 0 10px;
+  font-size: 22px;
+}
+.delete-alert-dialog p {
+  color: #65756c;
+  line-height: 1.6;
+}
 .delete-alert-icon {
   display: inline-flex;
   padding: 12px;
@@ -2346,4 +2354,33 @@ legend {
   background: #fff0ee;
   color: #b43d34;
 }
-.delete-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.delete-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.notification-delivery-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid #dce8df;
+  border-radius: 12px;
+  background: #f3f8f4;
+  color: #28543b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.notification-delivery-tip > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.notification-delivery-tip p {
+  margin: 4px 0 0;
+  color: #586b5e;
+  overflow-wrap: anywhere;
+}
