@@ -1,6 +1,6 @@
 import WorldRates from './WorldRates';
 import { useContext, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftRight,
   Bell,
@@ -36,6 +36,9 @@ import {
 } from './ui';
 import { type Alert, type Notice, type Rate } from '../shared/domain';
 export default function Dashboard() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const showTestReminder = location.state?.testAlertRequested === true;
   const { user } = useContext(Session),
     toast = useContext(Toast),
     { rates } = useRates();
@@ -115,6 +118,28 @@ export default function Dashboard() {
         />
       )}
       <Verification />
+      {showTestReminder && (
+        <div className="test-alert-reminder" role="status">
+          <Mail size={22} aria-hidden="true" />
+          <div>
+            <strong>Your test alert is saved. Check your email.</strong>
+            <p>
+              Check your inbox or Spam folder. If it is in Spam, select <strong>Not spam</strong> to
+              help future alerts reach your inbox. See Recent notifications below for the sending
+              status.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button outline small"
+            onClick={() =>
+              navigate(location.pathname + location.hash, { replace: true, state: null })
+            }
+          >
+            Got it
+          </button>
+        </div>
+      )}
       <div className="page-heading">
         <div>
           <span className="eyebrow">YOUR MONEY. YOUR MOMENT.</span>

@@ -2450,3 +2450,51 @@ legend {
     padding: 20px;
   }
 }
+
+.first-alert-test-action {
+  margin-top: 20px;
+}
+.first-alert-test-action .button {
+  white-space: normal;
+  line-height: 1.5;
+}
+.first-alert-test-action p {
+  margin: 10px 0 4px;
+}
+.first-alert-test-action small {
+  color: #586b5e;
+  font-size: 11px;
+}
+.first-alert-dismiss {
+  margin-top: 18px;
+}
+.test-alert-reminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid #9bbb83;
+  border-radius: 14px;
+  background: #f4f8ee;
+  color: #28543b;
+}
+.test-alert-reminder > svg {
+  flex-shrink: 0;
+}
+.test-alert-reminder > div {
+  flex: 1;
+}
+.test-alert-reminder p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 760px) {
+  .first-alert-collapsed {
+    order: -1;
+  }
+  .test-alert-reminder {
+    flex-wrap: wrap;
+  }
+}

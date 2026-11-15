@@ -3,13 +3,32 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, Bell, Mail } from 'lucide-react';
 import { CURRENCY_CODES, matches, type Alert, type Rate } from '../shared/domain';
 import { api } from './api';
-import { Currency, format, friendly, Shell, Toast, Verification } from './ui';
+import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
 export default function AlertEditor() {
+  const { user } = useContext(Session);
   const { id } = useParams(),
     navigate = useNavigate(),
     toast = useContext(Toast),
     [rates, setRates] = useState<Rate[]>([]),
     [rateLoading, setRateLoading] = useState(true);
+  const guideKey = 'ratewatch:first-alert-guide:' + user?.uid;
+  const [guideHidden, setGuideHidden] = useState(() => {
+    try {
+      return localStorage.getItem(guideKey) === 'dismissed';
+    } catch {
+      return false;
+    }
+  });
+  const [testAlert, setTestAlert] = useState(false);
+  function toggleGuide(hidden: boolean) {
+    setGuideHidden(hidden);
+    try {
+      if (hidden) localStorage.setItem(guideKey, 'dismissed');
+      else localStorage.removeItem(guideKey);
+    } catch {
+      /* The guide still works when browser storage is unavailable. */
+    }
+  }
   const [pair, setPair] = useState<string>('NZD/INR'),
     [target, setTarget] = useState(''),
     [condition, setCondition] = useState<'gte' | 'lte'>('gte'),
@@ -54,6 +73,7 @@ export default function AlertEditor() {
     satisfied = rate && Number(target) > 0 && matches(rate.rate, Number(target), condition);
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -67,7 +87,7 @@ export default function AlertEditor() {
         }),
       });
       toast('Alert saved. We’ll keep watch for you.');
-      navigate('/dashboard');
+      navigate('/dashboard', { state: { testAlertRequested: testAlert } });
     } catch (e) {
       setError(friendly(e));
     } finally {
@@ -107,6 +127,7 @@ export default function AlertEditor() {
                       next + '/' + (next === quote ? (next === 'USD' ? 'NZD' : 'USD') : quote),
                     );
                     setImmediate(false);
+                    setTestAlert(false);
                   }}
                 >
                   {[...CURRENCY_CODES].sort().map((code) => (
@@ -121,6 +142,7 @@ export default function AlertEditor() {
                   onChange={(e) => {
                     setPair(base + '/' + e.target.value);
                     setImmediate(false);
+                    setTestAlert(false);
                   }}
                 >
                   {[...CURRENCY_CODES]
@@ -156,7 +178,10 @@ export default function AlertEditor() {
                 max="1000000"
                 placeholder="Enter your target"
                 value={target}
-                onChange={(e) => setTarget(e.target.value)}
+                onChange={(e) => {
+                  setTarget(e.target.value);
+                  setTestAlert(false);
+                }}
               />
               <small>
                 1 {pair.split('/')[0]} = your target in {pair.split('/')[1]}
@@ -170,7 +195,10 @@ export default function AlertEditor() {
                     type="radio"
                     name="condition"
                     checked={condition === 'gte'}
-                    onChange={() => setCondition('gte')}
+                    onChange={() => {
+                      setCondition('gte');
+                      setTestAlert(false);
+                    }}
                   />
                   <ArrowUpRight size={22} />
                   <strong>Reaches or goes above</strong>
@@ -181,7 +209,10 @@ export default function AlertEditor() {
                     type="radio"
                     name="condition"
                     checked={condition === 'lte'}
-                    onChange={() => setCondition('lte')}
+                    onChange={() => {
+                      setCondition('lte');
+                      setTestAlert(false);
+                    }}
                   />
                   <ArrowUpRight size={22} style={{ transform: 'rotate(90deg)' }} />
                   <strong>Reaches or goes below</strong>
@@ -200,7 +231,10 @@ export default function AlertEditor() {
                   <input
                     type="checkbox"
                     checked={immediate}
-                    onChange={(e) => setImmediate(e.target.checked)}
+                    onChange={(e) => {
+                      setImmediate(e.target.checked);
+                      setTestAlert(false);
+                    }}
                   />
                   Send me an immediate notification
                 </label>
@@ -208,74 +242,134 @@ export default function AlertEditor() {
             )}
             <button
               className="button full"
-              disabled={busy || !loaded || !rate || (!!satisfied && !immediate)}
+              disabled={
+                busy || !loaded || !rate || (!!satisfied && !immediate) || (testAlert && !satisfied)
+              }
             >
-              {busy ? 'Saving…' : id ? 'Save & activate alert' : 'Start watching my rate'}
+              {busy
+                ? 'Saving...'
+                : testAlert
+                  ? 'Send test alert'
+                  : id
+                    ? 'Save & activate alert'
+                    : 'Start watching my rate'}
               <Bell size={17} />
             </button>
           </form>
         </section>
-        <aside className="editor-aside first-alert-guide" aria-labelledby="first-alert-heading">
-          <div className="first-alert-heading">
-            <span className="first-alert-arrow">
-              <ArrowRight size={25} aria-hidden="true" />
-            </span>
-            <span className="eyebrow">FIRST TIME HERE? START HERE</span>
-          </div>
-          <h2 id="first-alert-heading">Get your first alert into your inbox.</h2>
-          <p>Try one matching-rate alert first, so you know where your RateWatch emails arrive.</p>
-          <ol className="first-alert-steps">
-            <li>
-              <span className="first-alert-number">1</span>
-              <div>
-                <strong>Match the current rate</strong>
-                <p>
-                  Set your target equal to the current reference rate
-                  {rate ? (
-                    <>
-                      {' '}
-                      (<strong>{rate.rate}</strong> for {pair})
-                    </>
-                  ) : (
-                    ''
-                  )}
-                  . Choose <strong>Reaches or goes above</strong>.
+        {guideHidden ? (
+          <aside className="editor-aside first-alert-collapsed">
+            <button type="button" className="button outline" onClick={() => toggleGuide(false)}>
+              <Mail size={17} /> Show first-email guide
+            </button>
+          </aside>
+        ) : (
+          <aside className="editor-aside first-alert-guide" aria-labelledby="first-alert-heading">
+            <div className="first-alert-heading">
+              <span className="first-alert-arrow">
+                <ArrowRight size={25} aria-hidden="true" />
+              </span>
+              <span className="eyebrow">FIRST TIME HERE? START HERE</span>
+            </div>
+            <h2 id="first-alert-heading">Get your first alert into your inbox.</h2>
+            <p>
+              Try one matching-rate alert first, so you know where your RateWatch emails arrive.
+            </p>
+            {!id && (
+              <div className="first-alert-test-action">
+                <button
+                  type="button"
+                  className="button full"
+                  disabled={busy || !loaded || rateLoading || !rate}
+                  onClick={() => {
+                    if (!rate) return;
+                    setTarget(String(rate.rate));
+                    setCondition('gte');
+                    setImmediate(true);
+                    setTestAlert(true);
+                    setError('');
+                  }}
+                >
+                  <ArrowRight size={18} /> Use current rate for a test alert
+                </button>
+                <p role="status">
+                  {testAlert
+                    ? 'Ready. Click Send test alert in the form to confirm.'
+                    : 'Fills in the exact rate and enables immediate notification. You confirm before sending.'}
                 </p>
+                <small>This uses a regular alert slot until the email is accepted.</small>
               </div>
-            </li>
-            <li>
-              <span className="first-alert-number">2</span>
-              <div>
-                <strong>Request your first email</strong>
-                <p>
-                  Tick <strong>Send me an immediate notification</strong>, then save your alert.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span className="first-alert-number">3</span>
-              <div>
-                <strong>Check Spam and select Not spam</strong>
-                <p>
-                  If the email is in Spam or Junk, open it and select{' '}
-                  <strong>Report not spam</strong> or <strong>Not spam</strong>. This helps future
-                  alerts reach your inbox.
-                </p>
-              </div>
-            </li>
-          </ol>
-          <div className="first-alert-footer">
-            <Mail size={17} aria-hidden="true" />
-            <span>
-              You can also add <strong>ratewatch510@gmail.com</strong> to your contacts. Then create
-              an alert for the target you actually want to watch.
-            </span>
-          </div>
-          <div className="info">
-            These are daily reference rates. Banks and transfer providers may offer different rates
-            and charge fees.
-          </div>
-        </aside>
+            )}
+            <ol className="first-alert-steps">
+              <li>
+                <span className="first-alert-number">1</span>
+                <div>
+                  <strong>Match the current rate</strong>
+                  <p>
+                    Set your target equal to the current reference rate
+                    {rate ? (
+                      <>
+                        {' '}
+                        (<strong>{rate.rate}</strong> for {pair})
+                      </>
+                    ) : (
+                      ''
+                    )}
+                    . Choose <strong>Reaches or goes above</strong>.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span className="first-alert-number">2</span>
+                <div>
+                  <strong>Request your first email</strong>
+                  <p>
+                    {id ? (
+                      <>
+                        Tick <strong>Send me an immediate notification</strong>, then save your
+                        alert.
+                      </>
+                    ) : (
+                      <>
+                        Use the test button above to set up a matching-rate alert, then click{' '}
+                        <strong>Send test alert</strong> in the form.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span className="first-alert-number">3</span>
+                <div>
+                  <strong>Check Spam and select Not spam</strong>
+                  <p>
+                    If the email is in Spam or Junk, open it and select{' '}
+                    <strong>Report not spam</strong> or <strong>Not spam</strong>. This helps future
+                    alerts reach your inbox.
+                  </p>
+                </div>
+              </li>
+            </ol>
+            <div className="first-alert-footer">
+              <Mail size={17} aria-hidden="true" />
+              <span>
+                You can also add <strong>ratewatch510@gmail.com</strong> to your contacts. Then
+                create an alert for the target you actually want to watch.
+              </span>
+            </div>
+            <div className="info">
+              These are daily reference rates. Banks and transfer providers may offer different
+              rates and charge fees.
+            </div>
+            <button
+              type="button"
+              className="button outline full first-alert-dismiss"
+              onClick={() => toggleGuide(true)}
+            >
+              Got it
+            </button>
+          </aside>
+        )}
       </div>
     </Shell>
   );
