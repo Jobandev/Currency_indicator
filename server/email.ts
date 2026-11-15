@@ -22,37 +22,88 @@ function senderAddress() {
   }
   return process.env.EMAIL_FROM || '';
 }
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character]!,
+  );
 export function template(a: Alert, to: string): EmailPayload {
-  const detected = new Date(a.triggeredAt!).toISOString();
-  const detail =
-    a.pair +
-    ': target ' +
-    (a.condition === 'gte' ? '>=' : '<=') +
-    ' ' +
-    a.targetRate +
-    '; detected ' +
-    a.triggeredRate +
-    ' at ' +
-    detected +
-    '.';
+  const detected =
+    new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(a.triggeredAt!)) + ' UTC';
+  const [base, quote] = a.pair.split('/');
+  const number = (value: number) => value.toLocaleString('en-GB', { maximumFractionDigits: 6 });
+  const target =
+    (a.condition === 'gte' ? 'At or above ' : 'At or below ') + number(a.targetRate) + ' ' + quote;
+  const rate = '1 ' + base + ' = ' + number(a.triggeredRate!) + ' ' + quote;
   const url = new URL('/dashboard', process.env.APP_URL || 'http://localhost:5173').href;
-  return {
-    from: senderAddress(),
-    to: [to],
-    subject: 'Your ' + a.pair + ' target rate has been reached!',
-    text:
-      'RateWatch. ' +
-      detail +
-      ' Manage alerts: ' +
-      url +
-      '. Reference rates may differ from transfer-provider rates and fees.',
-    html:
-      '<!doctype html><html><body style="margin:0;background:#f2f5f3;font-family:Arial,sans-serif;color:#172e29"><main style="max-width:560px;margin:32px auto;padding:32px;background:white;border-radius:16px"><h2>&#8599; RateWatch</h2><p>YOUR MOMENT HAS ARRIVED</p><h1>Your target rate was reached.</h1><p>' +
-      detail +
-      '</p><p>These are daily reference rates, not executable quotes.</p><a style="display:inline-block;padding:14px 22px;background:#173e33;color:white;border-radius:8px" href="' +
-      url +
-      '">Manage your alerts</a><hr><p style="font-size:12px">Rates may change. Banks and money-transfer providers may offer different rates or charge fees. You requested this one-time notification. Manage preferences in your dashboard.</p></main></body></html>',
-  };
+  const settings = new URL('/settings', url).href;
+  const subject = 'RateWatch alert: ' + a.pair + ' target reached';
+  const text = [
+    'RateWatch | Currency alert',
+    '',
+    'Your ' + a.pair + ' target was reached.',
+    '',
+    'Your target: ' + target,
+    'Detected reference rate: ' + rate,
+    'Detected at: ' + detected,
+    '',
+    'View your alert: ' + url,
+    '',
+    'You received this one-time email because you created a currency alert in RateWatch.',
+    'Manage email preferences: ' + settings,
+    '',
+    'Source: Frankfurter daily reference rates. The detection time is when RateWatch checked the rate, not the market quote time. This is not a live trading price. Bank and transfer-provider rates and fees may differ.',
+  ].join('\n');
+  const detailRow = (label: string, value: string) =>
+    '<tr><td style="padding:14px 16px;border-bottom:1px solid #e7ece9;color:#5c6c64;font-size:14px">' +
+    label +
+    '</td><td style="padding:14px 16px;border-bottom:1px solid #e7ece9;font-size:15px;font-weight:600;text-align:right">' +
+    escapeHtml(value) +
+    '</td></tr>';
+  const html =
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' +
+    escapeHtml(subject) +
+    '</title></head>' +
+    '<body style="margin:0;padding:0;background:#f3f6f4;color:#18382b;font-family:Arial,Helvetica,sans-serif">' +
+    '<div style="display:none;max-height:0;overflow:hidden">' +
+    escapeHtml(rate + '. Your requested target has been reached.') +
+    '</div>' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px">' +
+    '<table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e0e8e3;border-radius:16px">' +
+    '<tr><td style="padding:24px 28px;border-bottom:1px solid #e7ece9;font-size:24px;font-weight:700">RateWatch <span style="font-size:12px;font-weight:400;color:#61746a">CURRENCY ALERT</span></td></tr>' +
+    '<tr><td style="padding:28px"><p style="margin:0 0 14px;font-size:12px;font-weight:700;color:#35734f">TARGET REACHED</p>' +
+    '<h1 style="margin:0 0 12px;font-size:26px;line-height:1.3">Your ' +
+    escapeHtml(a.pair) +
+    ' alert is ready.</h1>' +
+    '<p style="margin:0 0 24px;color:#5c6c64;font-size:15px;line-height:1.6">The daily reference rate met the target you set. Here are the details of your alert.</p>' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f8f6;border:1px solid #e7ece9;border-radius:8px">' +
+    detailRow('Currency pair', a.pair) +
+    detailRow('Your target', target) +
+    detailRow('Detected rate', rate) +
+    detailRow('Detected at', detected) +
+    '</table>' +
+    '<p style="margin:28px 0"><a href="' +
+    escapeHtml(url) +
+    '" style="display:inline-block;background:#183e2d;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:8px;font-size:14px;font-weight:700">View your alert</a></p>' +
+    '<p style="margin:0;font-size:12px;color:#6c7c72;line-height:1.6">Source: Frankfurter daily reference rates. The detection time is when RateWatch checked the rate, not the market quote time. This is not a live trading price. Bank and transfer-provider rates and fees may differ.</p></td></tr>' +
+    '<tr><td style="padding:20px 28px;border-top:1px solid #e7ece9;font-size:12px;line-height:1.7;color:#6c7c72">You received this one-time email because you created a currency alert in RateWatch.<br>' +
+    '<a href="' +
+    escapeHtml(settings) +
+    '" style="color:#285c40">Manage email preferences</a> &middot; <a href="' +
+    escapeHtml(url) +
+    '" style="color:#285c40">Open RateWatch</a></td></tr></table></td></tr></table></body></html>';
+  return { from: senderAddress(), to: [to], subject, text, html };
 }
 export async function sendEmail(payload: EmailPayload, key: string): Promise<string> {
   if (emailProvider() === 'gmail') {
