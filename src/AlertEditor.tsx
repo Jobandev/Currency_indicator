@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowUpRight, Bell, Check, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bell, Mail } from 'lucide-react';
 import { CURRENCY_CODES, matches, type Alert, type Rate } from '../shared/domain';
 import { api } from './api';
 import { Currency, format, friendly, Shell, Toast, Verification } from './ui';
@@ -206,17 +206,6 @@ export default function AlertEditor() {
                 </label>
               </div>
             )}
-            <div className="notification-delivery-tip">
-              <Mail size={20} aria-hidden="true" />
-              <div>
-                <strong>Your first email alert</strong>
-                <p>
-                  If your alert does not appear in your inbox, check Spam or Junk. In Gmail, open
-                  the RateWatch email and select <strong>Report not spam</strong> or{' '}
-                  <strong>Not spam</strong> to help future alerts reach your inbox.
-                </p>
-              </div>
-            </div>
             <button
               className="button full"
               disabled={busy || !loaded || !rate || (!!satisfied && !immediate)}
@@ -226,32 +215,62 @@ export default function AlertEditor() {
             </button>
           </form>
         </section>
-        <aside className="editor-aside">
-          <span className="stat-icon">
-            <ShieldCheck size={23} />
-          </span>
-          <h2>We’ll take it from here.</h2>
-          <p>
-            Your alert runs on our server, so you can close this page and carry on with your day.
-          </p>
-          <ul>
+        <aside className="editor-aside first-alert-guide" aria-labelledby="first-alert-heading">
+          <div className="first-alert-heading">
+            <span className="first-alert-arrow">
+              <ArrowRight size={25} aria-hidden="true" />
+            </span>
+            <span className="eyebrow">FIRST TIME HERE? START HERE</span>
+          </div>
+          <h2 id="first-alert-heading">Get your first alert into your inbox.</h2>
+          <p>Try one matching-rate alert first, so you know where your RateWatch emails arrive.</p>
+          <ol className="first-alert-steps">
             <li>
-              <Check size={16} />
-              Checked every 15 minutes
+              <span className="first-alert-number">1</span>
+              <div>
+                <strong>Match the current rate</strong>
+                <p>
+                  Set your target equal to the current reference rate
+                  {rate ? (
+                    <>
+                      {' '}
+                      (<strong>{rate.rate}</strong> for {pair})
+                    </>
+                  ) : (
+                    ''
+                  )}
+                  . Choose <strong>Reaches or goes above</strong>.
+                </p>
+              </div>
             </li>
             <li>
-              <Check size={16} />
-              One email per target
+              <span className="first-alert-number">2</span>
+              <div>
+                <strong>Request your first email</strong>
+                <p>
+                  Tick <strong>Send me an immediate notification</strong>, then save your alert.
+                </p>
+              </div>
             </li>
             <li>
-              <Check size={16} />
-              Three free active alerts
+              <span className="first-alert-number">3</span>
+              <div>
+                <strong>Check Spam and select Not spam</strong>
+                <p>
+                  If the email is in Spam or Junk, open it and select{' '}
+                  <strong>Report not spam</strong> or <strong>Not spam</strong>. This helps future
+                  alerts reach your inbox.
+                </p>
+              </div>
             </li>
-            <li>
-              <Check size={16} />
-              Edit or delete anytime
-            </li>
-          </ul>
+          </ol>
+          <div className="first-alert-footer">
+            <Mail size={17} aria-hidden="true" />
+            <span>
+              You can also add <strong>ratewatch510@gmail.com</strong> to your contacts. Then create
+              an alert for the target you actually want to watch.
+            </span>
+          </div>
           <div className="info">
             These are daily reference rates. Banks and transfer providers may offer different rates
             and charge fees.

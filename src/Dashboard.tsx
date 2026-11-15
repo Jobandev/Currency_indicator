@@ -317,17 +317,6 @@ export default function Dashboard() {
             <Trash2 size={16} /> Clear completed
           </button>
         </div>
-        <div className="notification-delivery-tip">
-          <Mail size={20} aria-hidden="true" />
-          <div>
-            <strong>Waiting for your first email alert?</strong>
-            <p>
-              Check your Spam or Junk folder. In Gmail, open the RateWatch email and choose{' '}
-              <strong>Report not spam</strong> or <strong>Not spam</strong>. This helps future
-              alerts reach your inbox. You can also add ratewatch510@gmail.com to your contacts.
-            </p>
-          </div>
-        </div>
         {noticeError ? (
           <div className="error" role="alert">
             {noticeError} <button onClick={reload}>Retry notifications</button>
