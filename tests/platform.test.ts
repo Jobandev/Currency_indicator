@@ -38,6 +38,7 @@ async function make() {
   return saveAlert('alice', input, rate());
 }
 beforeEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.clearAllMocks();
   records.clear();
@@ -146,6 +147,47 @@ describe('durable outbox', () => {
     await enqueue(id, { ...rate(), rate: 54 });
     const key = 'alert-' + id + '-1';
     records.get('notificationLogs/' + key).firstAttemptAt = Date.now() - 24 * 3600000;
+    const send = vi.fn();
+    await deliver(key, send);
+    expect(send).not.toHaveBeenCalled();
+    expect(records.get('notificationLogs/' + key).status).toBe('review_required');
+  });
+  it('holds Gmail failures without an automatic duplicate send', async () => {
+    vi.stubEnv('EMAIL_PROVIDER', 'gmail');
+    vi.stubEnv('GMAIL_USER', 'ratewatch510@gmail.com');
+    const id = await make();
+    await enqueue(id, { ...rate(), rate: 54 });
+    const key = 'alert-' + id + '-1';
+    const send = vi.fn().mockRejectedValue(new Error('timeout'));
+    await deliver(key, send);
+    await deliver(key, send, Date.now() + 3600000);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(records.get('notificationLogs/' + key).status).toBe('review_required');
+    expect(records.get('alerts/' + id).status).toBe('processing');
+  });
+  it('holds previously attempted Resend jobs before switching to Gmail', async () => {
+    const id = await make();
+    await enqueue(id, { ...rate(), rate: 54 });
+    const key = 'alert-' + id + '-1';
+    records.get('notificationLogs/' + key).attempts = 1;
+    vi.stubEnv('EMAIL_PROVIDER', 'gmail');
+    const send = vi.fn();
+    await deliver(key, send);
+    expect(send).not.toHaveBeenCalled();
+    expect(records.get('notificationLogs/' + key).status).toBe('review_required');
+  });
+  it('holds expired Gmail send leases for review', async () => {
+    vi.stubEnv('EMAIL_PROVIDER', 'gmail');
+    vi.stubEnv('GMAIL_USER', 'ratewatch510@gmail.com');
+    const id = await make();
+    await enqueue(id, { ...rate(), rate: 54 });
+    const key = 'alert-' + id + '-1';
+    Object.assign(records.get('notificationLogs/' + key), {
+      attempts: 1,
+      deliveryProvider: 'gmail',
+      status: 'sending',
+      leaseUntil: 0,
+    });
     const send = vi.fn();
     await deliver(key, send);
     expect(send).not.toHaveBeenCalled();

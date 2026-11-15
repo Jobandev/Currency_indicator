@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import { db, auth } from './firebase.js';
 import { matches, fresh, type Alert, type Rate } from '../shared/domain.js';
-import { template, sendEmail, type EmailPayload } from './email.js';
+import { template, sendEmail, emailProvider, type EmailPayload } from './email.js';
 import { getAlertRates } from './rates.js';
 export const log = (event: string, data: object = {}) =>
   console.log(JSON.stringify({ event, at: new Date().toISOString(), ...data }));
@@ -59,6 +59,17 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       t.update(ref, { status: 'cancelled' });
       return;
     }
+    const provider = emailProvider();
+    const previousProvider = j.deliveryProvider || 'resend';
+    if (j.attempts > 0 && (previousProvider !== provider || previousProvider === 'gmail')) {
+      t.update(ref, {
+        status: 'review_required',
+        leaseUntil: 0,
+        errorMessage:
+          'Email delivery requires review before switching providers or retrying Gmail. Check provider logs and Sent mail.',
+      });
+      return;
+    }
     if (j.firstAttemptAt && now - j.firstAttemptAt >= 23 * 3600000) {
       t.update(ref, {
         status: 'review_required',
@@ -68,12 +79,13 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
     }
     t.update(ref, {
       status: 'sending',
+      deliveryProvider: provider,
       leaseUntil: now + 120000,
       leaseToken: token,
       attempts: j.attempts + 1,
       firstAttemptAt: j.firstAttemptAt || now,
     });
-    return j;
+    return Object.assign(j, { deliveryProvider: provider });
   });
   if (!job) return;
   try {
@@ -106,7 +118,7 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       const s = await t.get(ref);
       if (s.data()?.leaseToken === token)
         t.update(ref, {
-          status: 'pending',
+          status: job.deliveryProvider === 'gmail' ? 'review_required' : 'pending',
           leaseUntil: 0,
           nextAttemptAt: now + Math.min(3600000, 60000 * 2 ** Math.min(job.attempts, 6)),
           errorMessage: error instanceof Error ? error.message : 'Delivery failed',

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import nodemailer from 'nodemailer';
 import type { Alert } from '../shared/domain.js';
 export type EmailPayload = {
   from: string;
@@ -6,6 +8,20 @@ export type EmailPayload = {
   html: string;
   text: string;
 };
+export function emailProvider(): 'gmail' | 'resend' {
+  const provider = process.env.EMAIL_PROVIDER || 'resend';
+  if (provider !== 'gmail' && provider !== 'resend') throw new Error('Unsupported email provider');
+  return provider;
+}
+function senderAddress() {
+  if (emailProvider() === 'gmail') {
+    const user = process.env.GMAIL_USER?.trim();
+    if (!user || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(user))
+      throw new Error('Configure GMAIL_USER with your Gmail sender address');
+    return 'RateWatch <' + user + '>';
+  }
+  return process.env.EMAIL_FROM || '';
+}
 export function template(a: Alert, to: string): EmailPayload {
   const detected = new Date(a.triggeredAt!).toISOString();
   const detail =
@@ -21,7 +37,7 @@ export function template(a: Alert, to: string): EmailPayload {
     '.';
   const url = new URL('/dashboard', process.env.APP_URL || 'http://localhost:5173').href;
   return {
-    from: process.env.EMAIL_FROM || '',
+    from: senderAddress(),
     to: [to],
     subject: 'Your ' + a.pair + ' target rate has been reached!',
     text:
@@ -39,6 +55,39 @@ export function template(a: Alert, to: string): EmailPayload {
   };
 }
 export async function sendEmail(payload: EmailPayload, key: string): Promise<string> {
+  if (emailProvider() === 'gmail') {
+    const from = senderAddress();
+    const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
+    if (!pass) throw new Error('Gmail App Password is not configured');
+    const transport = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: process.env.GMAIL_USER!.trim(), pass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+      disableFileAccess: true,
+      disableUrlAccess: true,
+    });
+    try {
+      const result = await transport.sendMail({
+        ...payload,
+        from,
+        messageId: '<' + createHash('sha256').update(key).digest('hex') + '@gmail.com>',
+      });
+      if (!result.accepted?.length || result.rejected?.length)
+        throw new Error('Gmail did not accept the recipient');
+      return result.messageId;
+    } catch {
+      // Do not expose authentication details or SMTP responses to the client.
+      throw new Error(
+        'Gmail delivery needs review. Check sender authentication, sending limits and Sent mail before retrying.',
+      );
+    } finally {
+      transport.close();
+    }
+  }
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM)
     throw new Error('Email service is not configured');
   const response = await fetch('https://api.resend.com/emails', {

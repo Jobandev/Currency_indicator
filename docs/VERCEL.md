@@ -51,3 +51,19 @@ Vercel Hobby cron runs at most daily, so this configuration does not register a 
 The current onboarding@resend.dev sender only sends to the Resend account email. Verify a sending domain before inviting others.
 
 Sources: https://vercel.com/docs/functions/runtimes/node-js , https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing , https://vercel.com/docs/plans/hobby
+
+## Gmail pilot sender (no custom domain)
+
+The backend supports Gmail SMTP as an alternative to Resend. In Vercel Production environment variables set:
+
+- EMAIL_PROVIDER=gmail
+- GMAIL_USER=ratewatch510@gmail.com
+- GMAIL_APP_PASSWORD: the Google App Password created by this account's owner; enter privately in Vercel, never GitHub or chat.
+
+Enable Google 2-Step Verification first. Some managed/protected accounts do not allow App Passwords. EMAIL_FROM and RESEND_API_KEY are unused in Gmail mode. Redeploy after saving variables. Sender is always RateWatch <ratewatch510@gmail.com>, including previously queued payloads, but attempted jobs are held for review before provider migration.
+
+Create one new alert to validate delivery after configuration. Do not assume existing Resend failures automatically migrate: attempted jobs become review_required. Inspect Resend request logs first. If the old job was definitively rejected (403), use an operator-reviewed cancellation/reconciliation before creating a replacement. Never mark failed email as sent.
+
+Gmail SMTP does not support Resend's idempotency keys. A stable Message-ID is used but does not guarantee deduplication. Gmail failures and expired send leases are held for review instead of automatically retried; check Gmail Sent mail before manual recovery. Successful SMTP acceptance is not proof of inbox delivery. Gmail account limits and server-side sign-in restrictions apply; this option is for a small pilot, not bulk email.
+
+References: https://nodemailer.com/usage/using-gmail/ and https://support.google.com/accounts/answer/185833
