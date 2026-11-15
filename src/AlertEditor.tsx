@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowUpRight, Bell, Check, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Bell, Check, Mail, ShieldCheck } from 'lucide-react';
 import { CURRENCY_CODES, matches, type Alert, type Rate } from '../shared/domain';
 import { api } from './api';
 import { Currency, format, friendly, Shell, Toast, Verification } from './ui';
@@ -206,6 +206,17 @@ export default function AlertEditor() {
                 </label>
               </div>
             )}
+            <div className="notification-delivery-tip">
+              <Mail size={20} aria-hidden="true" />
+              <div>
+                <strong>Your first email alert</strong>
+                <p>
+                  If your alert does not appear in your inbox, check Spam or Junk. In Gmail, open
+                  the RateWatch email and select <strong>Report not spam</strong> or{' '}
+                  <strong>Not spam</strong> to help future alerts reach your inbox.
+                </p>
+              </div>
+            </div>
             <button
               className="button full"
               disabled={busy || !loaded || !rate || (!!satisfied && !immediate)}
