@@ -2,7 +2,7 @@
 
 ## Delivery lifecycle
 
-active — processing + immutable notificationLogs record (one Firestore transaction) — leased sending — sent + completed (second transaction). The generation is incremented on edit/reactivation, making a new notification key. Processing alerts count toward the three-alert limit and cannot be edited/deleted. Disabling email alerts prevents new email triggers and cancels unattempted email deliveries. See [production improvements](PRODUCTION-IMPROVEMENTS.md) for Brevo, FCM, and digest policies.
+active — processing + immutable notificationLogs record (one Firestore transaction) — leased sending — sent + completed (second transaction). The generation is incremented on edit/reactivation, making a new notification key. Processing alerts count toward the three-alert limit and cannot be edited/deleted. Disabling email alerts prevents new email triggers and cancels unattempted email deliveries. See [production improvements](PRODUCTION-IMPROVEMENTS.md) for email, FCM, and digest policies.
 
 A worker lease expires after two minutes. Resend requests time out after 15 seconds. Failures retain payload/key and retry exponentially from one minute to one hour on a subsequent scheduled run. Successful API acceptance stores the message ID. A crash after acceptance but before persistence retries the same immutable payload/key within Resend's 24-hour idempotency window. Once 23 hours from first attempt has elapsed the record becomes review_required and is not automatically resent. Never replace its key blindly.
 

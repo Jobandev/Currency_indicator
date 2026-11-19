@@ -522,7 +522,7 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
               endpoint. Firebase Authentication handles sign-in, including optional Google sign-in.
               Cloud Firestore stores application records, and Firebase Cloud Messaging delivers push
               where enabled. RateWatch uses the configured email provider for alerts and summaries.
-              The application supports Brevo, Gmail and Resend. Frankfurter supplies daily reference
+              The application supports Gmail and Resend. Frankfurter supplies daily reference
               rates, and exchangerate.dev supplies delayed observations where enabled.
             </p>
             <p>

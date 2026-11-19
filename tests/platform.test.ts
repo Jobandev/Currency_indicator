@@ -44,6 +44,7 @@ async function make() {
 }
 beforeEach(() => {
   vi.unstubAllEnvs();
+  vi.stubEnv('EMAIL_PROVIDER', 'resend');
   vi.restoreAllMocks();
   vi.clearAllMocks();
   records.clear();
@@ -556,10 +557,11 @@ it('queues one opted-in summary and honours its signed unsubscribe link', async 
 });
 
 const tipDate = Date.parse('2026-11-20T10:00:00Z');
-const tipHistory = (latest: number) => Array.from({ length: 20 }, (_, index) => ({
-  date: new Date(tipDate - (19 - index) * 86400000).toISOString().slice(0, 10),
-  rate: index === 19 ? latest : index % 2 ? 49 : 51,
-}));
+const tipHistory = (latest: number) =>
+  Array.from({ length: 20 }, (_, index) => ({
+    date: new Date(tipDate - (19 - index) * 86400000).toISOString().slice(0, 10),
+    rate: index === 19 ? latest : index % 2 ? 49 : 51,
+  }));
 
 it('only flags fresh, distinct reference highs or lows', () => {
   expect(findRateExtreme(tipHistory(52), tipDate)?.direction).toBe('high');
@@ -574,7 +576,9 @@ it('queues at most one high or low email per month for an opted-in user without 
   vi.stubEnv('APP_URL', 'https://ratewatch.example');
   vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', 'true');
   const preferences = (rateTips: boolean) =>
-    request(app).patch('/api/profile').set('Authorization', 'Bearer alice')
+    request(app)
+      .patch('/api/profile')
+      .set('Authorization', 'Bearer alice')
       .send({ name: 'Alice', email: true, rateTips, rateTipPair: 'NZD/INR' });
   await preferences(true).expect(200);
   mocks.history.mockResolvedValue(tipHistory(50));
@@ -592,7 +596,9 @@ it('queues at most one high or low email per month for an opted-in user without 
   const job = records.get(jobPath);
   expect(job.payload.subject).toBe('NZD/INR reached a new 30-day high');
   expect(job.payload.text).toContain('/alerts/new?pair=NZD%2FINR');
-  expect([...records.keys()].filter(path => path.startsWith('notificationLogs/'))).toEqual([jobPath]);
+  expect([...records.keys()].filter((path) => path.startsWith('notificationLogs/'))).toEqual([
+    jobPath,
+  ]);
   const sender = vi.fn();
   await deliver(jobId, sender, tomorrow);
   expect(sender).not.toHaveBeenCalled();
@@ -629,12 +635,12 @@ it.each(['email', 'push'] as const)(
   async (channel) => {
     vi.stubEnv('VERCEL_ENV', 'production');
     vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', 'true');
-    vi.stubEnv('EMAIL_PROVIDER', 'brevo');
-    vi.stubEnv('BREVO_API_KEY', 'test-key');
-    vi.stubEnv('BREVO_SENDER_EMAIL', 'sender@example.test');
-    const email = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      Response.json({ messageId: 'mock-brevo-message' }),
-    );
+    vi.stubEnv('EMAIL_PROVIDER', 'resend');
+    vi.stubEnv('RESEND_API_KEY', 'test-key');
+    vi.stubEnv('EMAIL_FROM', 'sender@example.test');
+    const email = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(Response.json({ id: 'mock-resend-message' }));
     mocks.sendPush.mockResolvedValue({ successCount: 1, responses: [{ success: true }] });
     await request(app)
       .put('/api/push-device')
@@ -667,6 +673,30 @@ it('keeps Vercel Production delivery paused when the setting is absent', async (
   await deliver(jobId, sender);
   expect(sender).not.toHaveBeenCalled();
   expect(records.get('notificationLogs/' + jobId).status).toBe('pending');
+});
+
+it('keeps push moving past old email jobs when email delivery is off', async () => {
+  vi.stubEnv('EMAIL_PROVIDER', 'off');
+  await request(app)
+    .post('/api/alerts')
+    .set('Authorization', 'Bearer alice')
+    .send(input)
+    .expect(503);
+  records.set('pushDevices/test', { userId: 'alice', token: 'fake-device-token' });
+  const id = await saveAlert('alice', { ...input, channel: 'push' }, rate());
+  await enqueue(id, { ...rate(), rate: 54 });
+  for (let i = 0; i < 101; i++) {
+    records.set('notificationLogs/old-' + i, {
+      status: 'pending',
+      notificationType: 'email',
+      attempts: 0,
+      nextAttemptAt: 0,
+    });
+  }
+  mocks.sendPush.mockResolvedValue({ successCount: 1, responses: [{ success: true }] });
+  await expect(monitor()).resolves.toEqual({ processed: 1 });
+  expect(mocks.sendPush).toHaveBeenCalledOnce();
+  expect(records.get('notificationLogs/old-100').attempts).toBe(0);
 });
 
 it('queues Preview push without sending and completes through mocked FCM outside Preview', async () => {
@@ -751,18 +781,16 @@ it('shares the intraday poll budget across overlapping ticks and clamps the inte
   const now = Date.now();
   vi.stubEnv('EXCHANGERATE_DEV_API_KEY', 'test-key');
   vi.stubEnv('RATE_MONITOR_INTERVAL_MINUTES', '5');
-  const upstream = vi
-    .spyOn(globalThis, 'fetch')
-    .mockImplementation(async () =>
-      Response.json({
-        base: 'USD',
-        result: 'success',
-        rates: {},
-        effective_at: {},
-        sources: {},
-        stale: {},
-      }),
-    );
+  const upstream = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+    Response.json({
+      base: 'USD',
+      result: 'success',
+      rates: {},
+      effective_at: {},
+      sources: {},
+      stale: {},
+    }),
+  );
   await Promise.all([refreshIntraday(now), refreshIntraday(now)]);
   await refreshIntraday(now + 5 * 60000);
   await refreshIntraday(now + 29 * 60000);

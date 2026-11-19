@@ -11,7 +11,7 @@ The active application is hosted on the existing Vercel project. Cloudflare is o
 | Daily/history rates | Frankfurter v2 | Public daily reference and historical data. |
 | Delayed intraday rates | exchangerate.dev | Optional server-only keyed provider. |
 | Scheduler | Cloudflare Worker Cron | Preview config is paused by default; no production activation here. |
-| Email | Brevo | HTTPS adapter and smoke-test tooling are included. |
+| Email | Gmail or Resend | Email delivery defaults to off. |
 | Push | Firebase Cloud Messaging | Device registration and push delivery code are included. |
 
 No production credentials, Firebase projects, Vercel deployments, Cloudflare resources, billing, recipients, or devices are changed by local development.
@@ -24,7 +24,7 @@ Use the existing project with:
 - Build: `npm run test:runtime && npm run build`
 - Health: `/api/health`
 
-Preview must use the `ratewatch-preview` Firebase project and Preview-only Admin identity. Production must continue using `indicator-6bf61`. Set public `VITE_FIREBASE_` values at build time and private Firebase Admin, Brevo, `APP_URL`, `CRON_SECRET`, `NODE_ENV`, and proxy settings only in Vercel environment configuration. Never expose private credentials through `VITE_` variables.
+Preview must use the `ratewatch-preview` Firebase project and Preview-only Admin identity. Production must continue using `indicator-6bf61`. Set public `VITE_FIREBASE_` values at build time and private Firebase Admin, email credentials, `APP_URL`, `CRON_SECRET`, `NODE_ENV`, and proxy settings only in Vercel environment configuration. Never expose private credentials through `VITE_` variables.
 
 ## Cloudflare monitor trigger
 
@@ -41,4 +41,4 @@ Use `docs/SCHEDULER-AND-LIVE-TESTS.md` for dry-run, paused deployment, activatio
 
 ## Launch acceptance
 
-Before enabling any schedule or sending notifications, verify Firebase Admin permissions, Firestore indexes/rules, alert ownership, queue leases, notification deduplication, one approved Brevo recipient, and one approved FCM test device in Preview. Complete the legal, accessibility, mobile PWA, and performance checks in `docs/PRODUCTION-VERIFICATION.md`.
+Before enabling any schedule or sending notifications, verify Firebase Admin permissions, Firestore indexes/rules, alert ownership, queue leases, notification deduplication, one approved email recipient, and one approved FCM test device in Preview. Complete the legal, accessibility, mobile PWA, and performance checks in `docs/PRODUCTION-VERIFICATION.md`.

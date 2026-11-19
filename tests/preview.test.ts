@@ -19,6 +19,6 @@ it('requires a matching preview project and explicit preview Admin credentials',
 });
 
 it('blocks outbound notification credentials in preview without applying the preview guard to production', () => {
-  expect(() => verifyPreviewBackend({ ...env, BREVO_API_KEY: 'fake-key' }, credential)).toThrow();
+  expect(() => verifyPreviewBackend({ ...env, RESEND_API_KEY: 'fake-key' }, credential)).toThrow();
   expect(() => verifyPreviewBackend({ ...env, VERCEL_ENV: 'production' }, undefined)).not.toThrow();
 });

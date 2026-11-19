@@ -1,10 +1,8 @@
 export const previewProjectId = 'ratewatch-preview';
 
 const notificationCredentials = [
-  'BREVO_API_KEY',
   'RESEND_API_KEY',
   'GMAIL_APP_PASSWORD',
-  'BREVO_SMOKE_RECIPIENT',
   'VITE_FIREBASE_VAPID_KEY',
   'DIGEST_SECRET',
 ];

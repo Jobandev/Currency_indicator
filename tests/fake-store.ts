@@ -29,13 +29,14 @@ function snap(ref: Ref) {
     ref,
     exists: records.has(ref.path),
     data: () => (records.has(ref.path) ? structuredClone(records.get(ref.path)) : undefined),
+    get: (field: string) => records.get(ref.path)?.[field],
   };
 }
 class Query {
   filters: any[] = [];
   sort = '';
   direction = 'asc';
-  cursor = '';
+  cursor: string | ReturnType<typeof snap> = '';
   max = Infinity;
   constructor(public name: string) {}
   doc(id = randomUUID()) {
@@ -52,7 +53,7 @@ class Query {
     q.direction = direction;
     return q;
   }
-  startAfter(cursor: string) {
+  startAfter(cursor: string | ReturnType<typeof snap>) {
     const q = this.clone();
     q.cursor = cursor;
     return q;
@@ -89,7 +90,10 @@ class Query {
           bv = this.sort === '__name__' ? b.id : b.data()[this.sort];
         return (av < bv ? -1 : av > bv ? 1 : 0) * (this.direction === 'desc' ? -1 : 1);
       });
-    if (this.cursor) docs = docs.filter((d) => d.id > this.cursor);
+    const cursor = this.cursor;
+    if (typeof cursor === 'string' && cursor) docs = docs.filter((d) => d.id > cursor);
+    else if (typeof cursor !== 'string')
+      docs = docs.slice(docs.findIndex((d) => d.id === cursor.id) + 1);
     docs = docs.slice(0, this.max);
     return { docs, size: docs.length, empty: !docs.length };
   }

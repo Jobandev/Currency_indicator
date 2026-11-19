@@ -1,4 +1,4 @@
-# Local and external service setup
+﻿# Local and external service setup
 
 ## Firebase
 
@@ -12,15 +12,13 @@
 
 Firestore collections: users, alerts, exchangeRates, rateHistory (cached 30-day series), notificationLogs (outbox + receipt records), system (monitor lease/health). Timestamps are UTC epoch milliseconds except providerTimestamp (ISO date). Alert documents include the requested fields plus pair, generation, and immediate. Queue records hold private recipient payloads, lease ownership, attempts, retry time, and message ID. Client rules expose only an owner's profile/alerts; notification history goes through a filtered authenticated API.
 
-## Brevo
+## Optional email delivery
 
-1. Create a Brevo account and activate transactional sending.
-2. Verify the sender and authenticate the sending domain with Brevo's SPF/DKIM guidance.
-3. Create a server-only API key and set `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, and `BREVO_SENDER_EMAIL`.
-4. For initial testing, use one approved recipient you control and the explicit smoke-test command in `docs/SCHEDULER-AND-LIVE-TESTS.md`.
-5. Register your own account, verify the Firebase email, then intentionally create an already-satisfied alert with immediate consent. Confirm provider acceptance, inbox delivery, and Brevo logs. Do not send real emails in automated tests.
+Email delivery defaults to off. Push notifications use Firebase Cloud Messaging.
 
-Provider acceptance does not guarantee delivery; inspect bounces, spam, and transactional logs in Brevo. Gmail and Resend remain explicit local alternatives supported by the adapter, not the production default.
+- Gmail uses EMAIL_PROVIDER=gmail, GMAIL_USER, and a server-only GMAIL_APP_PASSWORD.
+- Resend uses EMAIL_PROVIDER=resend, a server-only RESEND_API_KEY, and EMAIL_FROM matching the sender permitted by Resend.
+- Test with an approved account you control. Check provider acceptance and inbox delivery separately. Automated tests use mocks.
 
 ## Exchange-rate API
 

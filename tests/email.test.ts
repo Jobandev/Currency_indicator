@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+﻿import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ sendMail: vi.fn(), close: vi.fn(), createTransport: vi.fn() }));
 vi.mock('nodemailer', () => ({ default: { createTransport: mocks.createTransport } }));
 import { sendEmail } from '../server/email';
@@ -59,23 +59,10 @@ it('rejects an unknown provider instead of silently using another sender', async
   await expect(sendEmail(payload, 'alert-1')).rejects.toThrow('Unsupported email provider');
 });
 
-it('sends Brevo over HTTPS and reuses a UUID across retry attempts', async () => {
-  vi.stubEnv('EMAIL_PROVIDER', 'brevo');
-  vi.stubEnv('BREVO_API_KEY', 'test-key');
-  vi.stubEnv('BREVO_SENDER_EMAIL', 'sender@example.test');
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json({ messageIds: ['brevo-1'] }, { status: 201 }))
-    .mockResolvedValueOnce(Response.json({ code: 'duplicate_parameter' }, { status: 400 }));
-  vi.stubGlobal('fetch', fetchMock);
-  try {
-    expect(await sendEmail(payload, 'alert-1')).toBe('brevo-1');
-    expect(await sendEmail(payload, 'alert-1')).toBe('brevo-deduplicated:alert-1');
-    const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(sent.headers.idempotencyKey).toMatch(/^[\da-f-]{36}$/);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(sent);
-    expect(sent.messageVersions).toEqual([{ to: [{ email: payload.to[0] }] }]);
-  } finally {
-    vi.unstubAllGlobals();
-  }
+it('rejects sends when no email provider is selected', async () => {
+  vi.stubEnv('EMAIL_PROVIDER', undefined);
+  await expect(sendEmail(payload, 'alert-1')).rejects.toThrow(
+    'Email notification delivery is disabled',
+  );
+  expect(mocks.createTransport).not.toHaveBeenCalled();
 });

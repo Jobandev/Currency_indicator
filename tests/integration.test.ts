@@ -10,6 +10,7 @@ vi.mock('../server/rates.js', () => ({
 describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
   let database: any;
   afterAll(async () => {
+    vi.unstubAllEnvs();
     if (database) await database.terminate();
   });
   it('register ? verify email ? login ? create alert ? trigger ? mocked send ? complete; isolates user data', async () => {
@@ -17,6 +18,7 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
     process.env.FIREBASE_PROJECT_ID = 'demo-ratewatch';
     process.env.APP_URL = 'http://localhost:5173';
     process.env.EMAIL_FROM = 'alerts@example.test';
+    vi.stubEnv('EMAIL_PROVIDER', 'resend');
     const { app } = await import('../server/app');
     const { db } = await import('../server/firebase');
     database = db;
@@ -104,6 +106,7 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
         .expect(200);
     } finally {
       vi.unstubAllEnvs();
+      vi.stubEnv('EMAIL_PROVIDER', 'resend');
     }
     await Promise.all([deliver(jobId, sender), deliver(jobId, sender)]);
     expect(sender).toHaveBeenCalledTimes(1);

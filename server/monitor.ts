@@ -29,7 +29,8 @@ export async function enqueue(id: string, rate: Rate) {
     if (
       !u.exists ||
       u.data()!.deleting ||
-      (channel === 'email' && u.data()!.notificationPreferences?.email === false)
+      (channel === 'email' &&
+        (emailProvider() === 'off' || u.data()!.notificationPreferences?.email === false))
     )
       return;
     if (channel === 'push' && (await t.get(pushDevicesFor(a.userId).limit(1))).empty) return;
@@ -83,6 +84,8 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
     const j = snap.data()!;
     if (!['pending', 'sending'].includes(j.status) || j.nextAttemptAt > now || j.leaseUntil > now)
       return;
+    const provider = j.notificationType === 'push' ? 'push' : emailProvider();
+    if (provider === 'off') return;
     const u = await t.get(db.collection('users').doc(j.userId));
     if (
       !u.exists ||
@@ -91,8 +94,10 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
         (u.data()!.digestFrequency !== j.frequency ||
           (u.data()!.digestPair || 'NZD/INR') !== j.pair)) ||
       (j.notificationType === 'rate-tip' &&
-        (j.expiresAt <= now || u.data()!.rateTips !== true ||
-          u.data()!.rateTipPair !== j.pair || u.data()!.notificationPreferences?.email === false)) ||
+        (j.expiresAt <= now ||
+          u.data()!.rateTips !== true ||
+          u.data()!.rateTipPair !== j.pair ||
+          u.data()!.notificationPreferences?.email === false)) ||
       (j.notificationType === 'email' && u.data()!.notificationPreferences?.email === false)
     ) {
       const alert = j.alertId ? db.collection('alerts').doc(j.alertId) : null;
@@ -107,7 +112,6 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       });
       return;
     }
-    const provider = j.notificationType === 'push' ? 'push' : emailProvider();
     const previousProvider = j.deliveryProvider || 'resend';
     if (
       j.attempts > 0 &&
@@ -120,10 +124,7 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       });
       return;
     }
-    if (
-      j.firstAttemptAt &&
-      now - j.firstAttemptAt >= (provider === 'brevo' ? 29 * 60000 : 23 * 3600000)
-    ) {
+    if (j.firstAttemptAt && now - j.firstAttemptAt >= 23 * 3600000) {
       t.update(ref, {
         status: 'review_required',
         errorMessage:
@@ -247,32 +248,41 @@ export async function monitor() {
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-    try {
-      await queueDigests(now);
-    } catch {
-      rateError = true;
-      log('digest_queue_error');
-    }
-    try {
-      await queueRateTips(now);
-    } catch {
-      rateError = true;
-      log('rate_tip_queue_error');
+    const emailEnabled = emailProvider() !== 'off';
+    if (emailEnabled) {
+      try {
+        await queueDigests(now);
+      } catch {
+        rateError = true;
+        log('digest_queue_error');
+      }
+      try {
+        await queueRateTips(now);
+      } catch {
+        rateError = true;
+        log('rate_tip_queue_error');
+      }
     }
     let processed = 0;
     if (!deliveryPaused()) {
-      const jobs = await db
+      const query = db
         .collection('notificationLogs')
         .where('status', 'in', ['pending', 'sending'])
         .where('nextAttemptAt', '<=', Date.now())
         .orderBy('nextAttemptAt')
-        .limit(100)
-        .get();
-      for (const j of jobs.docs) {
-        await deliver(j.id);
-        await pause(600);
+        .limit(100);
+      let jobs = await query.get();
+      while (jobs.size) {
+        for (const job of jobs.docs) {
+          if (!emailEnabled && job.get('notificationType') !== 'push') continue;
+          await deliver(job.id);
+          processed += 1;
+          if (processed === 100) break;
+          await pause(600);
+        }
+        if (processed === 100 || jobs.size < 100) break;
+        jobs = await query.startAfter(jobs.docs.at(-1)!).get();
       }
-      processed = jobs.size;
     }
     completedAt = Date.now();
     return rateError ? { processed, rateError: true } : { processed };

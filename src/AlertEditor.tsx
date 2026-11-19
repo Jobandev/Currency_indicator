@@ -15,6 +15,7 @@ export default function AlertEditor() {
   const [params] = useSearchParams();
   const requestedPair = pairSchema.safeParse(params.get('pair'));
   const [channel, setChannel] = useState<'email' | 'push'>('email');
+  const [emailEnabled, setEmailEnabled] = useState(true);
   const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
     params.get('source') === 'intraday' ? 'intraday' : 'daily',
   );
@@ -49,6 +50,19 @@ export default function AlertEditor() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [loaded, setLoaded] = useState(!id);
+  useEffect(() => {
+    let active = true;
+    api<{ emailEnabled?: boolean }>('/health')
+      .then(({ emailEnabled }) => {
+        if (!active || emailEnabled !== false) return;
+        setEmailEnabled(false);
+        if (!id && import.meta.env.VITE_FIREBASE_VAPID_KEY) setChannel('push');
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [id]);
   useEffect(() => {
     if (id)
       api<Alert[]>('/alerts')
@@ -164,13 +178,16 @@ export default function AlertEditor() {
                     setTestAlert(false);
                   }}
                 >
-                  <option value="email">Email</option>
+                  <option value="email" disabled={!emailEnabled}>
+                    Email{emailEnabled ? '' : ' (unavailable)'}
+                  </option>
                   {(import.meta.env.VITE_FIREBASE_VAPID_KEY || channel === 'push') && (
                     <option value="push">Push notification</option>
                   )}
                 </select>
               </label>
             </div>
+            {!emailEnabled && <p>Email alerts are unavailable. Use push on a registered device.</p>}
             {channel === 'push' && (
               <p>
                 Enable push on your devices in <Link to="/settings">notification settings</Link>.
@@ -313,7 +330,12 @@ export default function AlertEditor() {
             <button
               className="button full"
               disabled={
-                busy || !loaded || !rate || (!!satisfied && !immediate) || (testAlert && !satisfied)
+                busy ||
+                !loaded ||
+                !rate ||
+                (channel === 'email' && !emailEnabled) ||
+                (!!satisfied && !immediate) ||
+                (testAlert && !satisfied)
               }
             >
               {busy

@@ -1,4 +1,4 @@
-# Deploy RateWatch on Vercel
+﻿# Deploy RateWatch on Vercel
 
 Production: https://currencyindicators.vercel.app. Verified 15 November 2026.
 
@@ -29,9 +29,7 @@ Add these private server variables in Vercel project settings:
 
 - FIREBASE_PROJECT_ID
 - FIREBASE_SERVICE_ACCOUNT_JSON: the complete contents of the private service-account JSON, entered only into the private environment settings.
-- EMAIL_PROVIDER=brevo
-- BREVO_API_KEY
-- BREVO_SENDER_EMAIL: use a verified sending domain for public recipients.
+- EMAIL_PROVIDER=off until a sender is configured. Use gmail with GMAIL_USER and GMAIL_APP_PASSWORD, or resend with RESEND_API_KEY and a verified EMAIL_FROM.
 - APP_URL: the exact final HTTPS origin, such as https://your-project.vercel.app.
 - CRON_SECRET: a random secret of at least 32 characters.
 - NODE_ENV=production
@@ -49,7 +47,7 @@ Add the final live hostname to Firebase Authentication authorized domains. Deplo
 
 Vercel Hobby cron runs at most daily, so this configuration does not register a Vercel cron job. Configure an external scheduler to POST https://YOUR_HOST/api/jobs/monitor every 15 minutes, with Authorization: Bearer YOUR_CRON_SECRET and JSON body {}. Keep the secret out of the URL. Check scheduler timeout limits and inspect repeated successful responses and monitor completion logs. The function has a 300-second maximum; use a separate worker as volume grows. No scheduler has been created by these files.
 
-Verify the Brevo sender and domain before inviting recipients.
+Verify the selected sender and any required sending domain before inviting recipients.
 
 Sources: https://vercel.com/docs/functions/runtimes/node-js , https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing , https://vercel.com/docs/plans/hobby
 

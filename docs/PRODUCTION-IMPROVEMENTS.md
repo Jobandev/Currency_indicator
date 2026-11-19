@@ -1,4 +1,4 @@
-﻿# RateWatch production improvements
+# RateWatch production improvements
 
 ## Repository assessment and rollout
 
@@ -6,7 +6,7 @@ RateWatch uses React and TypeScript on Vite, React Router, a Vercel-routed Expre
 
 1. Keep current alerts on Frankfurter daily reference data. Add an opt-in delayed intraday provider and durable, shared polling state.
 2. Make conversion, charts, and transfer planning public. Add install prompts, an isolated offline fallback, route metadata, and mobile navigation.
-3. Extend the existing queue for Brevo, Firebase push, and opt-in summaries. Preserve the existing Gmail and Resend choices.
+3. Extend the existing queue for email, Firebase push, and opt-in summaries. Support Gmail and Resend, with email off by default.
 4. Validate with automated tests and the Firebase emulator. Test real provider accounts and devices before enabling the optional features on production.
 
 ## Providers and scheduling
@@ -19,13 +19,12 @@ RateWatch uses React and TypeScript on Vite, React Router, a Vercel-routed Expre
 ## Enable and verify optional features
 
 - Set EXCHANGERATE_DEV_API_KEY on the server and start the existing scheduler. Wait for its first successful observation before selecting delayed intraday alerts. An outage or stale observation never changes an intraday alert to reference data. Confirm the provider serves each launch pair across market sessions.
-- For Brevo, activate transactional sending, verify the sender and authenticate its domain where applicable. Set EMAIL_PROVIDER=brevo, BREVO_API_KEY and BREVO_SENDER_EMAIL on the server. The free plan includes 300 sends daily and Brevo branding. Test a real recipient and inspect provider logs after enabling it. Sending uses HTTPS, which requires no outbound SMTP connection. [Free plan](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan) · [Activation and delivery troubleshooting](https://help.brevo.com/hc/en-us/articles/115000188150-Troubleshooting-Issues-with-Brevo-SMTP) · [HTTPS API](https://developers.brevo.com/reference/send-transac-email)
 - For push, enable FCM for the existing Firebase project and set the Firebase Messaging Sender ID and public web push VAPID key in the Vite environment. Enable push in account settings from each device. Verify Chrome desktop, Android, and an installed iPhone PWA with the site open and closed. Test disabling and re-enabling each device. [Firebase web setup](https://firebase.google.com/docs/cloud-messaging/web/get-started)
 - For summaries, configure a private DIGEST_SECRET of at least 32 characters and set APP_URL to the final origin. Users opt in to a weekly or monthly summary for a pair. Boundaries are UTC, with weekly periods running Monday through Sunday. Users can unsubscribe from the email or profile.
 - The service worker uses a versioned cache containing only the offline document. It uses network-only navigation and skips APIs and Firebase hosting helper paths. Vite fingerprints the worker at build time so an app build can prompt for a refresh. vite-plugin-pwa's custom-worker injection was evaluated, but this worker has one static cache entry and needs no generated precache manifest. [Vite PWA injectManifest](https://vite-pwa-org.netlify.app/workbox/inject-manifest)
 
 ## Delivery policy
 
-Each alert selects one channel, and each generation gets a single queue record. Acceptance by the email provider or at least one registered FCM destination completes the alert. Acceptance does not confirm an inbox delivery or that a user read the alert. An unattempted job is cancelled if its email preference changes before delivery. Resend retries use the original key within 23 hours. Brevo retries use a stable UUID within 29 minutes of the first attempt, leaving a margin for the documented 30-minute batch key lifetime. An ambiguous Gmail or FCM attempt is held for review because those sends have no provider idempotency window. Email can be in flight when preference changes. Review held jobs against provider logs before recreating an alert. [Brevo batch idempotency](https://developers.brevo.com/docs/heterogenous-versions-batch-emails)
+Each alert selects one channel, and each generation gets a single queue record. Acceptance by the email provider or at least one registered FCM destination completes the alert. Acceptance does not confirm an inbox delivery or that a user read the alert. An unattempted job is cancelled if its email preference changes before delivery. Resend retries use the original key within 23 hours. An ambiguous Gmail or FCM attempt is held for review because those sends have no provider idempotency window. Email can be in flight when preference changes. Review held jobs against provider logs before recreating an alert.
 
 The public converter uses a daily reference if a recent delayed quote is unavailable, with a visible source and date. The monitoring source is stored on each alert. The dashboard stores favourites in this browser for the signed-in account. The transfer planner estimates receipt and links to provider sites. It has no payment flow or referral tracking.

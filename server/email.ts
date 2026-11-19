@@ -8,9 +8,9 @@ export type EmailPayload = {
   html: string;
   text: string;
 };
-export function emailProvider(): 'gmail' | 'resend' | 'brevo' {
-  const provider = process.env.EMAIL_PROVIDER || 'brevo';
-  if (provider !== 'gmail' && provider !== 'resend' && provider !== 'brevo')
+export function emailProvider(): 'gmail' | 'resend' | 'off' {
+  const provider = process.env.EMAIL_PROVIDER || 'off';
+  if (provider !== 'gmail' && provider !== 'resend' && provider !== 'off')
     throw new Error('Unsupported email provider');
   return provider;
 }
@@ -120,7 +120,9 @@ export function template(a: Alert, to: string): EmailPayload {
   return { from: senderAddress(), to: [to], subject, text, html };
 }
 export async function sendEmail(payload: EmailPayload, key: string): Promise<string> {
-  if (emailProvider() === 'gmail') {
+  const provider = emailProvider();
+  if (provider === 'off') throw new Error('Email notification delivery is disabled');
+  if (provider === 'gmail') {
     const from = senderAddress();
     const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
     if (!pass) throw new Error('Gmail App Password is not configured');
@@ -153,7 +155,6 @@ export async function sendEmail(payload: EmailPayload, key: string): Promise<str
       transport.close();
     }
   }
-  if (emailProvider() === 'brevo') return sendBrevo(payload, key);
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM)
     throw new Error('Email service is not configured');
   const response = await fetch('https://api.resend.com/emails', {
@@ -170,49 +171,4 @@ export async function sendEmail(payload: EmailPayload, key: string): Promise<str
   const result = (await response.json()) as { id?: string };
   if (!result.id) throw new Error('Email provider omitted message ID');
   return result.id;
-}
-
-async function sendBrevo(payload: EmailPayload, key: string) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const email = process.env.BREVO_SENDER_EMAIL;
-  if (!apiKey || !email) throw new Error('Brevo is not configured');
-  const hash = createHash('sha256')
-    .update('ratewatch:brevo:' + key)
-    .digest();
-  hash[6] = (hash[6] & 0x0f) | 0x40;
-  hash[8] = (hash[8] & 0x3f) | 0x80;
-  const hex = hash.subarray(0, 16).toString('hex');
-  const uuid = [
-    hex.slice(0, 8),
-    hex.slice(8, 12),
-    hex.slice(12, 16),
-    hex.slice(16, 20),
-    hex.slice(20),
-  ].join('-');
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sender: { email, name: 'RateWatch' },
-      subject: payload.subject,
-      htmlContent: payload.html,
-      textContent: payload.text,
-      headers: { idempotencyKey: uuid },
-      messageVersions: [{ to: payload.to.map((address) => ({ email: address })) }],
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-  const result = (await response.json().catch(() => ({}))) as {
-    code?: string;
-    messageId?: string;
-    messageIds?: string[];
-  };
-  if (!response.ok) {
-    if (response.status === 400 && result.code === 'duplicate_parameter')
-      return 'brevo-deduplicated:' + key;
-    throw new Error('Brevo returned ' + response.status);
-  }
-  const messageId = result.messageId || result.messageIds?.[0];
-  if (!messageId) throw new Error('Brevo omitted the message ID');
-  return messageId;
 }

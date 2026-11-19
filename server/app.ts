@@ -10,6 +10,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { auth, db, adminReady } from './firebase.js';
 import { alertSchema, PAIRS, pairSchema, transferPlanSchema } from '../shared/domain.js';
+import { emailProvider } from './email.js';
 import { getRates, getAlertRates, history } from './rates.js';
 import { HttpError, saveAlert, deleteAlert, setAlertPaused } from './alerts.js';
 import { monitor, enqueue, deliver, log } from './monitor.js';
@@ -37,7 +38,11 @@ app.use(
 app.use(cors({ origin: process.env.APP_URL || 'http://localhost:5173' }));
 app.use(express.json({ limit: '8kb' }));
 app.get('/api/health', (_req, res) =>
-  res.json({ ok: true, configured: !!process.env.FIREBASE_PROJECT_ID && adminReady }),
+  res.json({
+    ok: true,
+    configured: !!process.env.FIREBASE_PROJECT_ID && adminReady,
+    emailEnabled: emailProvider() !== 'off',
+  }),
 );
 const authorizeMonitor: express.RequestHandler = (req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -297,6 +302,9 @@ async function write(req: express.Request, res: express.Response) {
   if (!u.emailVerified) throw new HttpError(403, 'Verify your email before creating alerts');
   await syncProfile(u);
   const input = alertSchema.parse(req.body);
+  if ((input.channel ?? 'email') === 'email' && emailProvider() === 'off') {
+    throw new HttpError(503, 'Email alerts are unavailable. Choose push notification.');
+  }
   if (input.channel === 'push' && (await pushDevicesFor(u.uid).limit(1).get()).empty) {
     throw new HttpError(
       409,

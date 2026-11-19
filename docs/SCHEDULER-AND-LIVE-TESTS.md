@@ -1,4 +1,4 @@
-﻿# RateWatch Phase 3 scheduler and live test runbook
+# RateWatch Phase 3 scheduler and live test runbook
 
 ## Scheduler decision
 
@@ -22,7 +22,7 @@ The existing Preview Shareable Link returned a same-origin 307 and cookies. A re
 
 No project, deployment, bypass secret, environment variable, Cloudflare resource, or Cron trigger was changed during this investigation.
 
-Cloudflare does not change the Vercel hosting terms. Vercel Hobby is for personal, non-commercial use. Confirm eligible hosting before a commercial launch or introducing referral commissions. Watch Vercel function time, Firestore free quotas and Brevo sending volume. [Vercel fair use](https://vercel.com/docs/limits/fair-use-guidelines)
+Cloudflare does not change the Vercel hosting terms. Vercel Hobby is for personal, non-commercial use. Confirm eligible hosting before a commercial launch or introducing referral commissions. Watch Vercel function time, Firestore free quotas and email sending volume. [Vercel fair use](https://vercel.com/docs/limits/fair-use-guidelines)
 
 ## Wrangler preview preparation
 
@@ -68,17 +68,11 @@ Allow up to 15 minutes for trigger changes to propagate. Investigate repeated bu
 ## Provider configuration
 
 - The backend uses GET https://api.exchangerate.dev/v1/latest/USD with a symbols list and Authorization: Bearer EXCHANGERATE_DEV_API_KEY. No key is stored in the Worker. RATE_MONITOR_INTERVAL_MINUTES defaults to 30 and is clamped to at least 30. With the Firestore transaction gate, a five-minute Worker cadence still yields at most 1,488 polls in a 31-day month, below the documented free quota of 5,000/month and 10/minute. Deduct any other callers from that same allowance. Delayed observations are labelled and daily legs are excluded. Frankfurter v2 remains the daily reference and historical provider. [Exchangerate.dev API](https://exchangerate.dev/docs/api-reference), [pricing and attribution](https://exchangerate.dev/pricing), [Frankfurter](https://frankfurter.dev/)
-- Preview backend and Firebase variables are listed in [Phase 2 verification](PRODUCTION-VERIFICATION.md). For email use EMAIL_PROVIDER=brevo, BREVO_API_KEY and BREVO_SENDER_EMAIL. For push use VITE_FIREBASE_MESSAGING_SENDER_ID and VITE_FIREBASE_VAPID_KEY alongside the public Firebase app variables. For summaries use DIGEST_SECRET and the preview APP_URL.
+- Preview backend and Firebase variables are listed in [Phase 2 verification](PRODUCTION-VERIFICATION.md). Leave email off until Gmail or Resend is configured. For push use VITE_FIREBASE_MESSAGING_SENDER_ID and VITE_FIREBASE_VAPID_KEY alongside the public Firebase app variables. For summaries use DIGEST_SECRET and the preview APP_URL.
 
 ## Email test after explicit recipient and send approval
 
-Build locally with npm run build. Privately set EMAIL_PROVIDER=brevo, BREVO_API_KEY, BREVO_SENDER_EMAIL and BREVO_SMOKE_RECIPIENT for the current shell. Use the authorised sender and one approved address you control. Verify transactional activation, the sender and the domain (Brevo verification, DKIM and DMARC as instructed by Brevo). Set APP_URL to the preview origin if checking links. The local CLI uses the existing HTTPS adapter, sends sample copy only, and does not touch Firestore. It requires both the recipient environment variable and an explicit send flag.
-
-~~~powershell
-npm run test:email:live -- --send-one preview-001
-~~~
-
-Expect one acceptance and one inbox email. If the outcome is ambiguous, check Brevo transactional logs first. The same run ID and recipient produce the same key within Brevo's 30-minute batch idempotency window. Never automatically repeat outside that window. Separately validate the scheduler and queue with an approved test alert in preview. The free allowance is 300 sends per day. [Brevo send API](https://developers.brevo.com/reference/send-transac-email), [idempotency](https://developers.brevo.com/docs/heterogenous-versions-batch-emails), [sender and domain setup](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+Use an isolated Preview account you control after configuring Gmail or Resend for that approved environment. Confirm one provider acceptance and inbox message. Check provider logs before retrying any ambiguous attempt.
 
 ## Push test after explicit send approval
 
@@ -87,7 +81,7 @@ Enable Firebase Cloud Messaging and configure the public Web Push VAPID key for 
 ## Phase 3 files
 
 - Scheduler and credential hygiene — scheduler/wrangler.toml, scheduler/worker.js, scheduler/.gitignore.
-- Health and test tooling — server/app.ts, server/brevo-smoke.ts, package.json, eslint.config.js, tests/platform.test.ts, tests/scheduler.test.js.
+- Health and test tooling — server/app.ts, package.json, eslint.config.js, tests/platform.test.ts, tests/scheduler.test.js.
 - Currency pages and discovery — shared/public-pages.ts, public-html.ts, vercel.json, src/CurrencyPair.tsx, src/Converter.tsx, src/Charts.tsx, src/App.tsx, src/ui.tsx. The build now generates sitemap.xml and replaces the static copy.
 - Disclosures and accessibility — src/Account.tsx, src/Planner.tsx, src/styles.css.
 
