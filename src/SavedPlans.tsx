@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { Bookmark } from 'lucide-react';
 import { CURRENCY_CODES, type Alert, type TransferPlan } from '../shared/domain';
 import { Session } from './ui';
 import { api } from './api';
@@ -15,7 +16,17 @@ export default function SavedPlans() {
   return user ? (
     <Plans key={user.uid} />
   ) : (
-    <Link to="/login?next=%2Fplanner">Sign in to save transfer plans</Link>
+    <section className="rw-planner-signin">
+      <div>
+        <h2>
+          <Bookmark size={20} aria-hidden="true" /> Saved transfer plans
+        </h2>
+        <p>Keep your currency pair and amount together with a target rate or linked alert.</p>
+      </div>
+      <Link className="button outline" to="/login?next=%2Fplanner">
+        Sign in to save a plan
+      </Link>
+    </section>
   );
 }
 

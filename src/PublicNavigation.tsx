@@ -1,6 +1,17 @@
 ﻿import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  ArrowLeftRight,
+  Bell,
+  ChartNoAxesCombined,
+  CircleHelp,
+  FileText,
+  Globe2,
+  Menu,
+  Send,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 
 const groups = [
   {
@@ -8,27 +19,59 @@ const groups = [
     links: [
       {
         name: 'Currency converter',
+        Icon: ArrowLeftRight,
         href: '/#converter-heading',
         description: 'Convert between currencies.',
       },
-      { name: 'Rate alerts', href: '/#how-it-works', description: 'See how target alerts work.' },
-      { name: 'Transfer Planner', href: '/planner', description: 'Estimate and plan a transfer.' },
+      {
+        name: 'Rate alerts',
+        Icon: Bell,
+        href: '/#how-it-works',
+        description: 'See how target alerts work.',
+      },
+      {
+        name: 'Transfer Planner',
+        Icon: Send,
+        href: '/planner',
+        description: 'Estimate and plan a transfer.',
+      },
     ],
   },
   {
     title: 'Explore',
     links: [
-      { name: 'Historical charts', href: '/charts', description: 'Explore past exchange rates.' },
-      { name: 'NZD to INR', href: '/rates/nzd-inr', description: 'View rates for a popular pair.' },
+      {
+        name: 'Historical charts',
+        Icon: ChartNoAxesCombined,
+        href: '/charts',
+        description: 'Explore past exchange rates.',
+      },
+      {
+        name: 'NZD to INR',
+        Icon: Globe2,
+        href: '/rates/nzd-inr',
+        description: 'View rates for a popular pair.',
+      },
     ],
   },
   {
     title: 'Resources',
     links: [
-      { name: 'FAQs', href: '/#faq', description: 'Find answers about rates and alerts.' },
-      { name: 'Privacy Policy', href: '/privacy', description: 'Read how RateWatch handles data.' },
+      {
+        name: 'FAQs',
+        Icon: CircleHelp,
+        href: '/#faq',
+        description: 'Find answers about rates and alerts.',
+      },
+      {
+        name: 'Privacy Policy',
+        Icon: ShieldCheck,
+        href: '/privacy',
+        description: 'Read how RateWatch handles data.',
+      },
       {
         name: 'Terms of Service',
+        Icon: FileText,
         href: '/terms',
         description: 'Read the terms for using RateWatch.',
       },
@@ -53,7 +96,10 @@ export function RateWatchMark() {
 }
 
 export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
-  const [group, setGroup] = useState<string>();
+  const [clicked, setGroup] = useState<string>();
+  const [hovered, setHovered] = useState<string>();
+  const group = hovered ?? clicked;
+  const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const header = useRef<HTMLElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -63,6 +109,7 @@ export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
     const dismiss = (event: PointerEvent) => {
       if (event.target instanceof Node && !header.current?.contains(event.target)) {
         setGroup(undefined);
+        setHovered(undefined);
         setMobileOpen(false);
       }
     };
@@ -72,6 +119,7 @@ export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
 
   const close = () => {
     setGroup(undefined);
+    setHovered(undefined);
     setMobileOpen(false);
   };
 
@@ -85,6 +133,7 @@ export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
         if (group) {
           document.getElementById(`rw-trigger-${group}`)?.focus();
           setGroup(undefined);
+          setHovered(undefined);
         } else {
           toggle.current?.focus();
           setMobileOpen(false);
@@ -108,6 +157,7 @@ export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
           aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
           onClick={() => {
             setGroup(undefined);
+            setHovered(undefined);
             setMobileOpen(!mobileOpen);
           }}
         >
@@ -121,26 +171,54 @@ export default function PublicNavigation({ signedIn }: { signedIn: boolean }) {
         >
           <ul className="rw-nav-groups">
             {groups.map(({ title, links }) => (
-              <li key={title}>
+              <li
+                key={title}
+                onPointerEnter={(event) => {
+                  if (
+                    event.pointerType === 'mouse' &&
+                    window.matchMedia('(min-width: 761px) and (hover: hover)').matches &&
+                    !event.currentTarget.querySelector('ul')?.contains(document.activeElement)
+                  ) {
+                    setGroup(undefined);
+                    setHovered(title);
+                  }
+                }}
+                onPointerLeave={(event) => {
+                  if (event.pointerType !== 'mouse') return;
+                  if (event.currentTarget.querySelector('ul')?.contains(document.activeElement))
+                    setGroup(title);
+                  setHovered(undefined);
+                }}
+              >
                 <button
                   type="button"
                   id={`rw-trigger-${title}`}
                   aria-expanded={group === title}
                   aria-controls={`rw-panel-${title}`}
-                  onClick={() => setGroup(group === title ? undefined : title)}
+                  data-current={pathname !== '/' && links.some(({ href }) => href === pathname)}
+                  onClick={() => {
+                    setHovered(undefined);
+                    setGroup(clicked === title ? undefined : title);
+                  }}
                 >
                   {title}
                 </button>
                 <ul className="rw-nav-panel" id={`rw-panel-${title}`} hidden={group !== title}>
-                  {links.map(({ name, href, description }) => (
+                  {links.map(({ name, href, description, Icon }) => (
                     <li key={href}>
                       {href.includes('#') ? (
                         <a href={href} onClick={close}>
+                          <Icon size={18} aria-hidden="true" />
                           <strong>{name}</strong>
                           <span>{description}</span>
                         </a>
                       ) : (
-                        <Link to={href} onClick={close}>
+                        <Link
+                          to={href}
+                          onClick={close}
+                          aria-current={pathname === href ? 'page' : undefined}
+                        >
+                          <Icon size={18} aria-hidden="true" />
                           <strong>{name}</strong>
                           <span>{description}</span>
                         </Link>

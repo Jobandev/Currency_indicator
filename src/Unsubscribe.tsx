@@ -24,8 +24,10 @@ export default function Unsubscribe() {
   return (
     <>
       <PublicHeader />
-      <main id="main-content" tabIndex={-1} className="section">
-        <h1>Unsubscribe from summaries</h1>
+      <main id="main-content" tabIndex={-1} className="section rw-tool-page">
+        <header className="rw-page-heading">
+          <h1>Unsubscribe from summaries</h1>
+        </header>
         {value && signature && (
           <button className="button" disabled={busy} onClick={() => void submit()}>
             Turn off summaries

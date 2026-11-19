@@ -644,7 +644,7 @@ function RateChart({
   const r = rates.find((r) => r.currencyPair === pair),
     change = data.length > 1 ? ((data.at(-1)!.rate - data[0].rate) / data[0].rate) * 100 : null;
   return (
-    <section className="card chart-card">
+    <section className="card chart-card rw-chart-panel">
       <div className="section-heading">
         <h2>30-day rate history</h2>
         <label className="sr-only" htmlFor="chart-pair">
@@ -680,11 +680,11 @@ function RateChart({
             <AreaChart data={data} margin={{ top: 16, right: 12, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="rateFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#4a9670" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#4a9670" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#d8ff32" stopOpacity={0.22} />
+                  <stop offset="100%" stopColor="#d8ff32" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#e9eeeb" />
+              <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#484a73" />
               <XAxis
                 dataKey="date"
                 tickFormatter={(v) =>
@@ -693,25 +693,31 @@ function RateChart({
                 axisLine={false}
                 tickLine={false}
                 minTickGap={40}
-                tick={{ fontSize: 10, fill: '#89928f' }}
+                tick={{ fontSize: 10, fill: '#dddaf1' }}
               />
               <YAxis
                 domain={['auto', 'auto']}
                 tickFormatter={(v) => Number(v).toFixed(2)}
-                tick={{ fontSize: 10, fill: '#89928f' }}
+                tick={{ fontSize: 10, fill: '#dddaf1' }}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
                 formatter={(v) => format(Number(v))}
-                contentStyle={{ borderRadius: 10, border: '1px solid #e6ebe7' }}
+                contentStyle={{
+                  borderRadius: 10,
+                  border: '1px solid #77799e',
+                  background: '#202143',
+                }}
+                itemStyle={{ color: '#d8ff32' }}
               />
               <Area
                 type="monotone"
                 dataKey="rate"
-                stroke="#39875e"
+                stroke="#d8ff32"
                 strokeWidth={2}
                 fill="url(#rateFill)"
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -719,7 +725,7 @@ function RateChart({
       </div>
       <div className="chart-foot">
         <span className="green-dot" /> Frankfurter · daily reference history{' '}
-        <span>Not an intraday chart</span>
+        <Link to={'/charts?pair=' + encodeURIComponent(pair)}>Explore daily observations</Link>
       </div>
     </section>
   );

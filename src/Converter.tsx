@@ -11,7 +11,7 @@ export default function Converter({
 }: {
   initialBase?: string;
   initialQuote?: string;
-  appearance?: 'default' | 'homepage';
+  appearance?: 'default' | 'editorial';
 }) {
   const [base, setBase] = useState(initialBase);
   const [quote, setQuote] = useState(initialQuote);
@@ -19,7 +19,7 @@ export default function Converter({
   const [result, setResult] = useState<{ pair: string; rate: Rate | null }>();
   const [request, setRequest] = useState(0);
   const [swapped, setSwapped] = useState(false);
-  const homepage = appearance === 'homepage';
+  const editorial = appearance === 'editorial';
   const pair = base + '/' + quote;
   useEffect(() => {
     if (base === quote) return;
@@ -52,7 +52,7 @@ export default function Converter({
     }).format(new Date(rate.providerTimestamp));
   return (
     <section
-      className={homepage ? 'rw-converter' : 'card converter'}
+      className={editorial ? 'rw-converter' : 'card converter'}
       aria-labelledby="converter-heading"
     >
       <h2 id="converter-heading" tabIndex={-1}>
@@ -87,7 +87,7 @@ export default function Converter({
         </label>
         <button
           type="button"
-          className={homepage ? 'rw-swap' : 'button secondary'}
+          className={editorial ? 'rw-swap' : 'button secondary'}
           aria-label="Swap currencies"
           onClick={() => {
             setBase(quote);
@@ -121,7 +121,7 @@ export default function Converter({
       </div>
       <div
         role="status"
-        className={homepage ? 'rw-conversion-result' : 'conversion-result converter-output'}
+        className={editorial ? 'rw-conversion-result' : 'conversion-result converter-output'}
       >
         {base === quote ? (
           <p>Choose two different currencies.</p>
@@ -155,7 +155,7 @@ export default function Converter({
           </>
         )}
       </div>
-      {homepage && rate === null && base !== quote && (
+      {editorial && rate === null && base !== quote && (
         <button
           type="button"
           className="rw-retry"
@@ -167,19 +167,19 @@ export default function Converter({
           Retry rate lookup
         </button>
       )}
-      {homepage && (
+      {editorial && (
         <p className="rw-converter-note">Your transfer provider may quote a different rate.</p>
       )}
       {base !== quote && (
         <Link
-          className={homepage ? 'rw-button rw-alert-action' : 'button full'}
+          className={editorial ? 'rw-button rw-alert-action' : 'button full'}
           to={
             '/alerts/new?pair=' +
             encodeURIComponent(pair) +
             (rate?.kind && fresh(rate) ? '&source=intraday' : '')
           }
         >
-          {homepage ? 'Create a free alert' : 'Create free alert'}
+          {editorial ? 'Create a free alert' : 'Create free alert'}
         </Link>
       )}
     </section>

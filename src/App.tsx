@@ -1,9 +1,17 @@
-import { lazy, Suspense, useEffect, useState, useContext, type ReactNode } from 'react';
+﻿import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useContext,
+  type ReactNode,
+} from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Bell, X } from 'lucide-react';
 import { auth } from './firebase';
-import { Session, Toast } from './ui';
+import { Footer, PublicHeader, Session, Toast } from './ui';
 import { policyRedirects, publicPage } from '../shared/public-pages';
 import Landing from './Landing';
 const Unsubscribe = lazy(() => import('./Unsubscribe'));
@@ -38,6 +46,9 @@ export default function App() {
     const page = publicPage(location.pathname.replace(/\/$/, '') || '/');
     document.title = page ? page[0] + ' | RateWatch' : 'RateWatch';
   }, [location.pathname]);
+  useLayoutEffect(() => {
+    if (!location.hash) window.scrollTo(0, 0);
+  }, [location.pathname, location.hash]);
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [toast, setToast] = useState('');
@@ -82,30 +93,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/rates/:pair" element={<CurrencyPair />} />
-            <Route
-              path="/charts"
-              element={
-                <Suspense fallback={<p role="status">Loading charts?</p>}>
-                  <Charts />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/planner"
-              element={
-                <Suspense fallback={<p role="status">Loading planner?</p>}>
-                  <Planner />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/unsubscribe"
-              element={
-                <Suspense fallback={<p>Loading?</p>}>
-                  <Unsubscribe />
-                </Suspense>
-              }
-            />
+            <Route path="/charts" element={<Charts />} />
+            <Route path="/planner" element={<Planner />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/register" element={<AuthPage mode="register" />} />
             <Route path="/forgot-password" element={<AuthPage mode="reset" />} />
@@ -152,10 +142,18 @@ export default function App() {
             <Route
               path="*"
               element={
-                <main id="main-content" tabIndex={-1} className="page-loading">
-                  <h1>Page not found</h1>
-                  <Link to="/">Back home</Link>
-                </main>
+                <>
+                  <PublicHeader />
+                  <main id="main-content" tabIndex={-1} className="section rw-tool-page">
+                    <header className="rw-page-heading">
+                      <h1>Page not found</h1>
+                      <Link className="button" to="/">
+                        Back home
+                      </Link>
+                    </header>
+                  </main>
+                  <Footer />
+                </>
               }
             />
           </Routes>

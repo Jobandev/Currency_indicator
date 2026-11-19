@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+﻿import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { signOut, sendEmailVerification, type User } from 'firebase/auth';
 import {
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { auth } from './firebase';
 import { api } from './api';
-import PublicNavigation from './PublicNavigation';
+import PublicNavigation, { RateWatchMark } from './PublicNavigation';
 import type { Rate } from '../shared/domain';
 export const Session = createContext<{ user: User | null; loading: boolean }>({
   user: null,
@@ -29,9 +29,7 @@ export const format = (n: number, d = 4) =>
 export function Brand() {
   return (
     <Link className="brand" to="/">
-      <span className="brand-icon">
-        <ChartNoAxesCombined size={21} />
-      </span>
+      <RateWatchMark />
       RateWatch
     </Link>
   );

@@ -5,9 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>RateWatch offline</title>
+    <style>
+      body {
+        margin: 0;
+        padding: clamp(1rem, 7vw, 5rem);
+        background: #f7f6f2;
+        color: #10112f;
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        max-width: 40rem;
+        margin: auto;
+        padding: clamp(1.25rem, 5vw, 3rem);
+        border-radius: 1rem;
+        background: #ebe7fa;
+      }
+      h1 {
+        margin: 0.5rem 0 1rem;
+        font-size: clamp(2rem, 6vw, 4rem);
+        line-height: 1;
+        letter-spacing: -0.06em;
+      }
+      p {
+        color: #51516a;
+        line-height: 1.6;
+      }
+      a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding-inline: 1rem;
+        border-radius: 0.5rem;
+        background: #d8ff32;
+        color: #10112f;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      a:hover {
+        background: #10112f;
+        color: white;
+      }
+      a:focus-visible {
+        outline: 3px solid #5750ac;
+        outline-offset: 3px;
+      }
+    </style>
   </head>
   <body>
     <main>
+      <strong>RateWatch</strong>
       <h1>You're offline</h1>
       <p>Reconnect to check exchange rates, convert currencies, or manage alerts.</p>
       <p>Saved alerts are monitored on the server.</p>

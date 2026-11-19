@@ -1,12 +1,22 @@
 ﻿import { Link } from 'react-router-dom';
 import { useContext } from 'react';
-import { ArrowUpRight, Bell, Clock3, Globe2, Mail, Plus, ShieldCheck } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Bell,
+  CalendarDays,
+  Clock3,
+  Globe2,
+  Mail,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react';
 import { PublicHeader, Footer, Currency, Session, useRates, format } from './ui';
 import Converter from './Converter';
 import HistoryPreview from './HistoryPreview';
 import InstallAction from './InstallAction';
 import RateAtmosphere from './RateAtmosphere';
-import './redesign.css';
+import ScrollReveal from './ScrollReveal';
+import ProviderLinks from './ProviderLinks';
 export default function Landing() {
   const { rates, error, loading, load } = useRates();
   const { user } = useContext(Session);
@@ -35,7 +45,7 @@ export default function Landing() {
                 </a>
               </div>
             </div>
-            <Converter appearance="homepage" />
+            <Converter appearance="editorial" />
           </div>
         </section>
         <div className="rw-market">
@@ -44,7 +54,7 @@ export default function Landing() {
               <h2>Daily reference rates</h2>
             </div>
             {loading ? (
-              <span className="skeleton">Loading reference ratesâ€¦</span>
+              <span className="skeleton">Loading reference rates…</span>
             ) : error ? (
               <div className="inline-error">
                 Rates unavailable <button onClick={load}>Try again</button>
@@ -55,7 +65,7 @@ export default function Landing() {
                   <Currency pair={r.currencyPair} />
                   <strong>{format(r.rate)}</strong>
                   <small>
-                    Daily reference Â·{' '}
+                    Daily reference ·{' '}
                     {new Date(r.providerTimestamp).toLocaleDateString('en-NZ', { timeZone: 'UTC' })}
                   </small>
                 </div>
@@ -64,7 +74,22 @@ export default function Landing() {
           </section>
           <HistoryPreview />
         </div>
-        <section id="how-it-works" className="section">
+        <ScrollReveal>
+          <section className="section rw-insights-story">
+            <CalendarDays size={32} aria-hidden="true" />
+            <div>
+              <h2>See which days stood out.</h2>
+              <p>
+                Explore monthly highs and lows, then select a date to see its recorded exchange
+                rate.
+              </p>
+            </div>
+            <Link className="button outline" to="/charts">
+              Explore the rate calendar
+            </Link>
+          </section>
+        </ScrollReveal>
+        <section id="how-it-works" className="section rw-story">
           <h2>How rate alerts work</h2>
           <div className="three-grid">
             {[
@@ -75,12 +100,12 @@ export default function Landing() {
               },
               {
                 title: 'Set your moment',
-                text: 'Choose your target and whether youâ€™re waiting for the rate to rise or fall.',
+                text: 'Choose your target and whether you’re waiting for the rate to rise or fall.',
                 Icon: Bell,
               },
               {
-                title: 'Weâ€™ll keep watch',
-                text: 'Close the tab. Get on with your day. Weâ€™ll notify you when the monitored rate meets your target.',
+                title: 'We’ll keep watch',
+                text: 'Close the tab. Get on with your day. We’ll notify you when the monitored rate meets your target.',
                 Icon: Mail,
               },
             ].map(({ title, text, Icon }) => (
@@ -94,50 +119,84 @@ export default function Landing() {
             ))}
           </div>
         </section>
-        <section id="features" className="feature-section">
-          <div>
-            <span className="eyebrow">LESS NOISE. MORE PEACE OF MIND.</span>
-            <h2>
-              Life moves fast.
-              <br />
-              Your rate alerts can keep up.
-            </h2>
-            <p>
-              Built for people sending money, not trading screens. Three free alerts, clear
-              reference rates, and no subscription to think about.
-            </p>
-            <Link className="button" to="/register">
-              Create your free account <ArrowUpRight size={17} />
-            </Link>
-          </div>
-          <div className="feature-list">
-            {[
-              {
-                Icon: Clock3,
-                title: 'Watching while youâ€™re away',
-                text: 'Once scheduled monitoring is enabled, checks run independently of your device.',
-              },
-              {
-                Icon: ShieldCheck,
-                title: 'Your account, protected',
-                text: 'Secure sign-in and private alerts. We never handle your money.',
-              },
-              {
-                Icon: Mail,
-                title: 'One target. One notification.',
-                text: 'A notification when your condition is met. No repeated alerts.',
-              },
-            ].map(({ Icon, title, text }) => (
-              <article key={title}>
-                <Icon />
-                <div>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+        <ScrollReveal>
+          <section id="features" className="feature-section">
+            <div>
+              <h2>
+                Life moves fast.
+                <br />
+                Your rate alerts can keep up.
+              </h2>
+              <p>
+                Built for people sending money, not trading screens. Three free alerts, clear
+                reference rates, and no subscription to think about.
+              </p>
+              <Link className="button" to="/register">
+                Create your free account <ArrowUpRight size={17} />
+              </Link>
+            </div>
+            <div className="feature-list">
+              <figure className="rw-target-demo">
+                <svg viewBox="0 0 420 110" aria-hidden="true">
+                  <path d="M8 45H412" stroke="#7770d8" strokeDasharray="5 5" />
+                  <path
+                    className="rw-demo-line"
+                    d="M8 98C61 92 95 50 147 67S233 84 281 62 342 45 393 45"
+                    pathLength="1"
+                  />
+                  <circle cx="393" cy="45" r="6" fill="#d8ff32" />
+                </svg>
+                <figcaption>
+                  <Bell size={16} aria-hidden="true" /> Target reached{' '}
+                  <span>Illustrative demo</span>
+                </figcaption>
+              </figure>
+              {[
+                {
+                  Icon: Clock3,
+                  title: 'Watching while you’re away',
+                  text: 'Once scheduled monitoring is enabled, checks run independently of your device.',
+                },
+                {
+                  Icon: ShieldCheck,
+                  title: 'Your account, protected',
+                  text: 'Secure sign-in and private alerts. We never handle your money.',
+                },
+                {
+                  Icon: Mail,
+                  title: 'One target. One notification.',
+                  text: 'A notification when your condition is met. No repeated alerts.',
+                },
+              ].map(({ Icon, title, text }) => (
+                <article key={title}>
+                  <Icon />
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{text}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </ScrollReveal>
+        <ScrollReveal>
+          <section
+            className="section rw-tool-grid rw-transfer-story"
+            aria-labelledby="rw-transfer-heading"
+          >
+            <div>
+              <h2 id="rw-transfer-heading">Plan your next transfer.</h2>
+              <p>
+                Estimate the conversion, save your amount and link a target alert while you compare
+                provider quotes.
+              </p>
+              <Link className="button" to="/planner">
+                Open Transfer Planner
+              </Link>
+            </div>
+            <ProviderLinks />
+          </section>
+        </ScrollReveal>
         <section id="faq" className="section faq">
           <span className="eyebrow">GOOD QUESTIONS</span>
           <h2>A little clarity goes a long way.</h2>

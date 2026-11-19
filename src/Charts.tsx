@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { CURRENCY_CODES } from '../shared/domain';
 import { api } from './api';
+import RateCalendar from './RateCalendar';
 import { Footer, format, PublicHeader } from './ui';
 
 type Point = { date: string; rate: number };
@@ -74,6 +75,10 @@ export default function Charts() {
   const current = response?.query === query ? response : undefined;
   const points = current?.points || [];
   const prices = points.map((p) => p.rate);
+  const lowRate = Math.min(...prices);
+  const highRate = Math.max(...prices);
+  const low = points.find((point) => point.rate === lowRate);
+  const high = points.find((point) => point.rate === highRate);
   const chart = points.map((point, index) => ({
     ...point,
     movingAverage: index >= 6 ? average(prices.slice(index - 6, index + 1)) : undefined,
@@ -101,30 +106,32 @@ export default function Charts() {
     rates.push(point.rate);
     monthly.set(month, rates);
   }
-  const stats = points.length
-    ? [
-        ['Low', format(Math.min(...prices))],
-        ['High', format(Math.max(...prices))],
-        ['Average', format(average(prices))],
-        [
-          'Change',
-          returns.length
-            ? ((prices.at(-1)! / prices[0] - 1) * 100).toFixed(2) + '%'
-            : 'Unavailable',
-        ],
-        [
-          'Volatility',
-          returns.length > 1
-            ? Math.sqrt(average(returns.map((value) => (value - meanReturn) ** 2))).toFixed(2) + '%'
-            : 'Unavailable',
-        ],
-      ]
-    : [];
+  const stats =
+    low && high
+      ? [
+          ['Low', format(low.rate), low.date],
+          ['High', format(high.rate), high.date],
+          ['Average', format(average(prices))],
+          [
+            'Change',
+            returns.length
+              ? ((prices.at(-1)! / prices[0] - 1) * 100).toFixed(2) + '%'
+              : 'Unavailable',
+          ],
+          [
+            'Volatility',
+            returns.length > 1
+              ? Math.sqrt(average(returns.map((value) => (value - meanReturn) ** 2))).toFixed(2) +
+                '%'
+              : 'Unavailable',
+          ],
+        ]
+      : [];
   return (
     <>
       <PublicHeader />
       <main id="main-content" tabIndex={-1} className="section chart-insights history-page">
-        <header className="history-heading">
+        <header className="rw-page-heading history-heading">
           <h1>Exchange-rate history</h1>
           <p>
             Explore daily reference observations from{' '}
@@ -187,7 +194,7 @@ export default function Charts() {
             </>
           )}
         </div>
-        <section className="card chart-card" aria-label="Rate history">
+        <section className="card chart-card rw-chart-panel" aria-label="Rate history">
           <h2>
             {base}/{quote}
           </h2>
@@ -207,28 +214,38 @@ export default function Charts() {
                 {points.length} observations from {points[0].date} to {points.at(-1)!.date}
               </p>
               <dl>
-                {stats.map(([label, value]) => (
+                {stats.map(([label, value, date]) => (
                   <div key={label}>
                     <dt>{label}</dt>
-                    <dd>{value}</dd>
+                    <dd>
+                      {value}
+                      {date && <time dateTime={date}>{date}</time>}
+                    </dd>
                   </div>
                 ))}
               </dl>
               <div className="chart-area">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chart} margin={{ top: 10, right: 15, bottom: 8 }}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 4" />
+                    <CartesianGrid vertical={false} stroke="#484a73" strokeDasharray="3 4" />
                     <XAxis
                       dataKey="date"
                       minTickGap={28}
+                      tick={{ fill: '#dddaf1' }}
                       tickFormatter={(date: string) => date.slice(5)}
                     />
-                    <YAxis width={52} domain={['auto', 'auto']} />
-                    <Tooltip />
+                    <YAxis tick={{ fill: '#dddaf1' }} width={52} domain={['auto', 'auto']} />
+                    <Tooltip
+                      contentStyle={{
+                        background: '#202143',
+                        borderColor: '#77799e',
+                        color: 'white',
+                      }}
+                    />
                     <Line
                       dataKey="rate"
                       name="Reference rate"
-                      stroke="var(--green)"
+                      stroke="#d8ff32"
                       strokeWidth={2.5}
                       dot={false}
                       isAnimationActive={false}
@@ -236,7 +253,7 @@ export default function Charts() {
                     <Line
                       dataKey="movingAverage"
                       name="7-observation average"
-                      stroke="#875625"
+                      stroke="#b4aaf7"
                       strokeDasharray="5 4"
                       dot={false}
                       isAnimationActive={false}
@@ -295,6 +312,9 @@ export default function Charts() {
             </>
           )}
         </section>
+        {points.length > 0 && (
+          <RateCalendar key={query} points={points} from={from} to={to} quote={quote} />
+        )}
         <section className="chart-card">
           <h2>Historically observed patterns</h2>
           <p>
@@ -340,10 +360,21 @@ export default function Charts() {
               </tbody>
             </table>
           ) : (
-            <p>
-              Choose a range with at least two years and 365 observed changes to see grouped
-              results.
-            </p>
+            <>
+              <p>Patterns require at least two years and 365 observed changes.</p>
+              {period !== '1826' && (
+                <button
+                  type="button"
+                  className="button outline"
+                  onClick={() => {
+                    setPeriod('1826');
+                    setGroup(1);
+                  }}
+                >
+                  Compare days of the month over five years
+                </button>
+              )}
+            </>
           )}
         </section>
       </main>
