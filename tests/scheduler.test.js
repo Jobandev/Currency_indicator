@@ -20,7 +20,7 @@ it.each([
     env.MONITOR_URL,
     expect.objectContaining({
       method: 'POST',
-      redirect: 'error',
+    redirect: 'manual',
       headers: expect.objectContaining({ Authorization: 'Bearer ' + env.CRON_SECRET }),
     }),
   );
@@ -68,4 +68,34 @@ it('blocks the known production hostname in preview before making any request', 
     ),
   ).rejects.toThrow('configuration_error');
   expect(send).not.toHaveBeenCalled();
+});
+
+it('adds the Vercel automation bypass header without putting it in the URL or logs', async () => {
+  const log = vi.fn();
+  const send = vi.fn().mockResolvedValue(Response.json({ processed: 0 }));
+  await invokeMonitor(
+    event,
+    { ...env, VERCEL_AUTOMATION_BYPASS_SECRET: 'preview-bypass-secret' },
+    send,
+    log,
+  );
+  expect(send).toHaveBeenCalledWith(
+    env.MONITOR_URL,
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        'x-vercel-protection-bypass': 'preview-bypass-secret',
+      }),
+    }),
+  );
+  expect(JSON.stringify(log.mock.calls)).not.toContain('preview-bypass-secret');
+});
+
+it('records a 302 as an HTTP redirect instead of network_error', async () => {
+  const log = vi.fn();
+  const send = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));
+  await expect(invokeMonitor(event, env, send, log)).rejects.toThrow('http_error');
+  expect(JSON.parse(log.mock.calls[0][0])).toMatchObject({
+    outcome: 'http_error',
+    status: 302,
+  });
 });

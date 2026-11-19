@@ -23,12 +23,19 @@ The pre-recovery local changes were preserved in stash `pre-recovery local previ
 
 ## Verification
 
-- Mocked suite: PASS — 72 passed, 1 skipped; 73 total.
+- Mocked suite: PASS — 74 passed, 1 skipped; 75 total.
 - TypeScript: PASS.
 - ESLint: PASS.
 - Production build: PASS.
 - Firebase emulator: BLOCKED by a 403 download failure through the environment DNS monitoring proxy.
 - Deployed Preview, Cloudflare runtime, Brevo delivery, FCM delivery, and mobile/browser field metrics: NOT VERIFIED.
+
+## Scheduler connectivity investigation
+
+- Paused Cloudflare Worker Cron configuration: PASS — Wrangler dry-run succeeds and no Cron trigger is configured.
+- Worker unit tests: PASS — 6 tests cover successful POST parsing, busy responses, unsafe destinations, HTTP failures, timeout classification, production-host rejection, the 302 distinction, and the Vercel Automation Bypass header.
+- Confirmed mechanism: Vercel Deployment Protection returns SSO/302 responses. The Worker now uses manual redirect handling and can send `x-vercel-protection-bypass` from a protected secret.
+- `network_error` from the earlier deployment remains ambiguous without Cloudflare response status/logs and the Vercel bypass result. The smallest fix is in place, but live verification is blocked until Cloudflare and Vercel credentials are available.
 
 ## Cleanup
 

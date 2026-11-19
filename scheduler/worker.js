@@ -19,14 +19,23 @@ export async function invokeMonitor(event, env, fetcher = fetch, log = console.l
       throw new Error();
 
     outcome = 'network_error';
+    const headers = {
+      Authorization: 'Bearer ' + env.CRON_SECRET,
+      Accept: 'application/json',
+    };
+    if (typeof env.VERCEL_AUTOMATION_BYPASS_SECRET === 'string' &&
+        env.VERCEL_AUTOMATION_BYPASS_SECRET.length > 0) {
+      headers['x-vercel-protection-bypass'] = env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    }
     const response = await fetcher(url.href, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + env.CRON_SECRET, Accept: 'application/json' },
-      redirect: 'error',
+      headers,
+      redirect: 'manual',
       signal: AbortSignal.timeout(310000),
     });
     status = response.status;
     outcome = 'http_error';
+    if (status >= 300 && status < 400) throw new Error();
     if (!response.ok) throw new Error();
     outcome = 'invalid_response';
     const result = await response.json();

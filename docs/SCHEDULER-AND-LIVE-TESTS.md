@@ -8,6 +8,8 @@ GitHub Actions is the fallback. Standard hosted runners in public repositories a
 
 The Worker has no public route. It POSTs to one exact HTTPS endpoint with bearer authentication, refuses redirects, and allows up to 310 seconds for the backend's configured 300-second function. The next tick handles recovery after a failed request. Firestore continues to own overlap prevention and notification idempotency. Only one scheduler should be enabled for each backend. A busy response means another invocation holds the lease. A successful response is not proof of notification delivery.
 
+For Deployment-Protected Preview, the Worker must receive `VERCEL_AUTOMATION_BYPASS_SECRET` and send it as `x-vercel-protection-bypass`. The request uses manual redirect handling so an SSO or other 3xx response is recorded as `http_error` with its status instead of being mislabeled `network_error`. The bypass secret is not included in the URL or log payload.
+
 Cloudflare does not change the Vercel hosting terms. Vercel Hobby is for personal, non-commercial use. Confirm eligible hosting before a commercial launch or introducing referral commissions. Watch Vercel function time, Firestore free quotas and Brevo sending volume. [Vercel fair use](https://vercel.com/docs/limits/fair-use-guidelines)
 
 ## Wrangler preview preparation
