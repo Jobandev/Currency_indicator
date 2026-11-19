@@ -94,3 +94,31 @@ No remote settings, deployments, Cron triggers, billing, production data, or not
 - Firestore recorded exactly one pending notification job, zero delivery attempts, a processing alert, a released monitor lease, and zero push devices. An authenticated monitor GET returned HTTP 200 with a completion timestamp of `2026-11-19T08:17:23.301Z`, matching Firestore. The synthetic fixture remains in Preview for inspection.
 - Regression checks passed again. Vitest reported 78 passing tests, the Firebase emulator integration test passed separately, and TypeScript, ESLint, and the production build passed.
 - Milestone C Preview verification is complete. Hosted scheduling and real Brevo and FCM delivery require separate authorization. Production, billing, and project-wide Automation Bypass were untouched.
+
+## Milestone D final verification
+
+### Verified
+
+- Reviewed local baseline `339daf6`. GitHub `preview` remained at `8d1cbc5` and `main` at `7f612da`.
+- Recorded the synthetic run's one queued job and zero attempts, then atomically deleted its fingerprinted user, alert, and outbox documents from `ratewatch-preview`. Verified all three were absent afterward. Preserved the monitor timestamp and avoided real user records.
+- Cloudflare Preview Worker version `acfbbb89-9589-4028-9b6e-f3105dc79cdb` still had zero remote Cron triggers. Vercel web and backend project IDs matched `ratewatch-preview` in Preview and `indicator-6bf61` in Production. Production?s project environment did not list `CRON_SECRET`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `VITE_FIREBASE_VAPID_KEY`, or the optional `EXCHANGERATE_DEV_API_KEY`.
+- 78 automated tests passed, with one Firebase Auth and Firestore emulator integration test passing separately. TypeScript, ESLint, production build, and Git whitespace checks passed. The production dependency audit reported zero advisories. Mocked tests covered alert deduplication, leases, retry and provider idempotency, signed unsubscribe, push opt-out, and expired-token cleanup.
+- Chrome at 390 px passed converter calculation and swapping, charts and observation-table navigation, Firebase emulator signup and verification, sign-in, alert creation and pause/resume, and saved-plan linking and persistence. The tested routes had no document-level horizontal overflow.
+- Chrome reported no installability errors in a fresh regular test profile. Service worker control, offline fallback, the keyboard skip link, prerendered headings, canonical markup, structured data, sitemap, private-route noindex, and API security headers passed. Physical-device install and background delivery remain live checks. The converter and chart disclose the dated reference source, and the disclaimer describes delayed observations, indicative rates, fees, and spreads.
+- The WCAG 2.x axe scan reported serious text contrast failures on the homepage, charts, alert editor, dashboard, and planner. Examples include conversion detail text, chart source text, alert direction help, and the alert status badge. Treat these as accessibility blockers before public release.
+
+### Current limits
+
+- Cloudflare Workers Free allows 5 Cron triggers per account, 100,000 requests/day, 50 subrequests per invocation, and 10 ms of Cron CPU. One five-minute schedule is 288 ticks/day and the Preview path uses two outbound requests per tick. The one-shot wall time does not establish hosted CPU usage. [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+- Vercel Hobby is restricted to personal, non-commercial use. Hobby Node functions with Fluid compute support a 300-second maximum. [Vercel Hobby](https://vercel.com/docs/plans/hobby) [Function limits](https://vercel.com/docs/functions/limitations)
+- Brevo Free includes 300 sends/day. FCM's default downstream quota is 600,000 messages/minute per project. Firestore's free limits include 50,000 reads and 20,000 writes/day. At 288 ticks/day, each continually active alert adds roughly 288 scan reads/day before other application activity. [Brevo Free limits](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan) [FCM quotas](https://firebase.google.com/docs/cloud-messaging/throttling-and-quotas) [Firestore quotas](https://firebase.google.com/docs/firestore/quotas)
+- exchangerate.dev Free permits 5,000 calls/month and 10/minute with observations delayed by 15 minutes. One scheduler doing a shared poll every 30 minutes uses up to 1,488 calls in a 31-day month. Frankfurter publishes no daily or monthly quota and applies abuse rate limiting. Review source terms for the intended public use. [exchangerate.dev API](https://exchangerate.dev/docs/api-reference) [Frankfurter](https://frankfurter.dev/) [Frankfurter data terms](https://frankfurter.dev/license/)
+
+### Final launch checklist
+
+- [ ] Correct the verified mobile text contrast issues and rerun the accessibility checks.
+- [ ] Replace draft privacy and terms copy with approved operator details, retention and rights disclosures, and jurisdiction information. Confirm the intended launch qualifies for Vercel Hobby.
+- [ ] Obtain separate send approval. Verify one Brevo alert in an approved inbox, including provider acceptance, sender identity, link navigation, and duplicate suppression. Verify one FCM alert on each approved test platform with a real install, app closed, and no delivery after device opt-out. Include Android Chrome and an installed iOS Safari PWA.
+- [ ] Obtain approval for the Production scheduler credential and Brevo and FCM settings. The intraday provider key is needed only if intraday observations are offered at launch.
+- [ ] Review and approve the Production release. Confirm public SEO, authentication, and security headers against the approved deployment before opening access.
+- [ ] Keep Cron paused until an activation decision is approved. The Preview one-shot passed, but hosted Cron cadence and Free CPU usage still require observation during an approved activation. Production Cron requires the approved endpoint and its own bearer credential.
