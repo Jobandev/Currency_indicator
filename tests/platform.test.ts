@@ -622,10 +622,22 @@ it('requires an enabled device to save a push alert and holds it active after op
       .set('Authorization', 'Bearer alice')
       .send({ token, enabled });
   await setDevice(true).expect(200);
+  await request(app)
+    .get('/api/push-device')
+    .set('Authorization', 'Bearer alice')
+    .expect(200, { enabled: true });
+  await request(app)
+    .get('/api/push-device')
+    .set('Authorization', 'Bearer bob')
+    .expect(200, { enabled: false });
   const {
     body: { id },
   } = await send({ ...input, channel: 'push' }).expect(201);
   await setDevice(false).expect(200);
+  await request(app)
+    .get('/api/push-device')
+    .set('Authorization', 'Bearer alice')
+    .expect(200, { enabled: false });
   await enqueue(id, { ...rate(), rate: 54 });
   expect(records.get('alerts/' + id).status).toBe('active');
 });
@@ -729,7 +741,7 @@ it('queues Preview push without sending and completes through mocked FCM outside
   expect(mocks.sendPush).toHaveBeenCalledExactlyOnceWith({
     tokens,
     data: { path: '/dashboard#alert-' + id, tag: jobId },
-    webpush: { headers: { TTL: '3600' } },
+    webpush: { headers: { TTL: '3600', Urgency: 'high' } },
   });
   expect(records.get('alerts/' + id).status).toBe('completed');
   expect([...records.values()].some((record) => record.token === tokens[1])).toBe(false);

@@ -23,7 +23,7 @@ export async function sendPush(uid: string, alertId: string, key: string) {
   const result = await getMessaging().sendEachForMulticast({
     tokens: registered.docs.map((doc) => doc.data().token),
     data: { path: '/dashboard#alert-' + alertId, tag: key },
-    webpush: { headers: { TTL: '3600' } },
+    webpush: { headers: { TTL: '3600', Urgency: 'high' } },
   });
   await Promise.allSettled(
     result.responses.map(async (response, index) => {
@@ -39,6 +39,13 @@ export async function sendPush(uid: string, alertId: string, key: string) {
       });
     }),
   );
-  if (!result.successCount) throw new Error('No registered device accepted the notification');
+  if (!result.successCount) {
+    const code = result.responses.find(({ error }) =>
+      /^messaging\/[a-z-]+$/.test(error?.code ?? ''),
+    )?.error?.code;
+    throw new Error(
+      'No registered device accepted the notification' + (code ? ' (' + code + ')' : ''),
+    );
+  }
   return result.responses.find((entry) => entry.success)!.messageId!;
 }

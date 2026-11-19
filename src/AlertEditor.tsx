@@ -14,8 +14,13 @@ import { Currency, format, friendly, Session, Shell, Toast, Verification } from 
 export default function AlertEditor() {
   const [params] = useSearchParams();
   const requestedPair = pairSchema.safeParse(params.get('pair'));
-  const [channel, setChannel] = useState<'email' | 'push'>('email');
+  const [selectedChannel, setChannel] = useState<'email' | 'push'>();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [checkingChannels, setCheckingChannels] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
+  const defaultChannel = pushEnabled || (!emailEnabled && pushConfigured) ? 'push' : 'email';
+  const channel = selectedChannel ?? defaultChannel;
   const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
     params.get('source') === 'intraday' ? 'intraday' : 'daily',
   );
@@ -52,17 +57,19 @@ export default function AlertEditor() {
     [loaded, setLoaded] = useState(!id);
   useEffect(() => {
     let active = true;
-    api<{ emailEnabled?: boolean }>('/health')
-      .then(({ emailEnabled }) => {
-        if (!active || emailEnabled !== false) return;
-        setEmailEnabled(false);
-        if (!id && import.meta.env.VITE_FIREBASE_VAPID_KEY) setChannel('push');
-      })
-      .catch(() => {});
+    void Promise.allSettled([
+      api<{ emailEnabled?: boolean }>('/health'),
+      api<{ enabled: boolean }>('/push-device'),
+    ]).then(([health, devices]) => {
+      if (!active) return;
+      if (health.status === 'fulfilled') setEmailEnabled(health.value.emailEnabled !== false);
+      if (devices.status === 'fulfilled') setPushEnabled(devices.value.enabled);
+      setCheckingChannels(false);
+    });
     return () => {
       active = false;
     };
-  }, [id]);
+  }, []);
   useEffect(() => {
     if (id)
       api<Alert[]>('/alerts')
@@ -107,7 +114,7 @@ export default function AlertEditor() {
     satisfied = rate && Number(target) > 0 && matches(rate.rate, Number(target), condition);
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || checkingChannels) return;
     setBusy(true);
     setError('');
     try {
@@ -173,6 +180,7 @@ export default function AlertEditor() {
                 Notify me by
                 <select
                   value={channel}
+                  disabled={checkingChannels}
                   onChange={(event) => {
                     setChannel(event.target.value === 'push' ? 'push' : 'email');
                     setTestAlert(false);
@@ -181,7 +189,7 @@ export default function AlertEditor() {
                   <option value="email" disabled={!emailEnabled}>
                     Email{emailEnabled ? '' : ' (unavailable)'}
                   </option>
-                  {(import.meta.env.VITE_FIREBASE_VAPID_KEY || channel === 'push') && (
+                  {(pushConfigured || pushEnabled || channel === 'push') && (
                     <option value="push">Push notification</option>
                   )}
                 </select>
@@ -190,7 +198,10 @@ export default function AlertEditor() {
             {!emailEnabled && <p>Email alerts are unavailable. Use push on a registered device.</p>}
             {channel === 'push' && (
               <p>
-                Enable push on your devices in <Link to="/settings">notification settings</Link>.
+                {pushEnabled
+                  ? 'Push goes to your registered devices. '
+                  : 'Enable push on a device before saving. '}
+                <Link to="/settings#push-notifications">Manage or test push on this device</Link>.
               </p>
             )}
             {error && (
@@ -333,6 +344,7 @@ export default function AlertEditor() {
                 busy ||
                 !loaded ||
                 !rate ||
+                checkingChannels ||
                 (channel === 'email' && !emailEnabled) ||
                 (!!satisfied && !immediate) ||
                 (testAlert && !satisfied)

@@ -39,7 +39,8 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let data;
   try {
-    data = event.data?.json()?.data;
+    const payload = event.data?.json();
+    data = payload?.data ?? payload;
   } catch {
     return;
   }

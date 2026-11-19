@@ -1,8 +1,10 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { auth } from './firebase';
+import { useLocation } from 'react-router-dom';
 import { api } from './api';
 
 export default function PushSettings({ uid }: { uid: string }) {
+  const { hash } = useLocation();
   const key = 'ratewatch:push:' + uid;
   const [enabled, setEnabled] = useState(() => {
     try {
@@ -23,6 +25,11 @@ export default function PushSettings({ uid }: { uid: string }) {
     'Notification' in window &&
     'PushManager' in window,
   );
+
+  useEffect(() => {
+    if (hash === '#push-notifications')
+      document.getElementById('push-notifications')?.scrollIntoView();
+  }, [hash]);
 
   useEffect(() => {
     if (!supported || !enabled || Notification.permission !== 'granted' || !auth) return;
@@ -106,13 +113,45 @@ export default function PushSettings({ uid }: { uid: string }) {
     }
   }
 
+  async function testDisplay() {
+    setMessage('');
+    try {
+      if (Notification.permission !== 'granted') {
+        setMessage('Allow notifications in this browser and device settings, then try again.');
+        return;
+      }
+      const registration = await navigator.serviceWorker.getRegistration('/');
+      if (!registration?.active) {
+        setMessage('Enable push on this device and reload RateWatch before testing.');
+        return;
+      }
+      await registration.showNotification('RateWatch test', {
+        body: 'This device can display RateWatch notifications.',
+        icon: '/icon-192.png',
+        tag: 'ratewatch-device-test',
+      });
+      setMessage('Test requested. Check your device’s notification centre if no banner appeared.');
+    } catch {
+      setMessage(
+        'This device could not display the test. Check your browser and system notification settings.',
+      );
+    }
+  }
+
   return (
-    <section className="card chart-card">
-      <h2>Push notifications</h2>
+    <section id="push-notifications" className="card chart-card" aria-labelledby="push-heading">
+      <h2 id="push-heading">Push notifications</h2>
       {supported ? (
-        <button className="button secondary" disabled={busy} onClick={() => void change()}>
-          {enabled ? 'Disable push on this device' : 'Enable push on this device'}
-        </button>
+        <div className="rw-push-actions">
+          <button className="button secondary" disabled={busy} onClick={() => void change()}>
+            {enabled ? 'Disable push on this device' : 'Enable push on this device'}
+          </button>
+          {enabled && (
+            <button className="button outline" disabled={busy} onClick={() => void testDisplay()}>
+              Test notification display
+            </button>
+          )}
+        </div>
       ) : (
         <p>
           Push is unavailable here. On iPhone, install RateWatch from Safari and open it from your

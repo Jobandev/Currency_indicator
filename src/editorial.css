@@ -664,3 +664,12 @@ footer > span {
     white-space: normal;
   }
 }
+
+#push-notifications {
+  scroll-margin-top: 6rem;
+}
+.rw-push-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}

@@ -150,6 +150,11 @@ app.put('/api/push-device', async (req, res) => {
   await setPushDevice(res.locals.uid, input.token, input.enabled);
   res.json({ ok: true });
 });
+app.get('/api/push-device', async (_req, res) => {
+  const devices = await pushDevicesFor(res.locals.uid).limit(1).get();
+  res.set('Cache-Control', 'no-store');
+  res.json({ enabled: !devices.empty });
+});
 app.post('/api/profile', async (_req, res) => {
   const user = await auth.getUser(res.locals.uid);
   await syncProfile(user);
