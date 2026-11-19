@@ -108,6 +108,17 @@ describe('alert mutations', () => {
   });
 });
 describe('durable outbox', () => {
+  it('leaves monitor health and lease state to the current lease owner', async () => {
+    await make();
+    const replacement = { token: 'new-owner', until: Date.now() + 600000, lastCompletedAt: 1 };
+    mocks.latest.mockImplementationOnce(async () => {
+      records.set('system/monitor', replacement);
+      return [rate()];
+    });
+    await expect(monitor()).resolves.toEqual({ processed: 0 });
+    expect(records.get('system/monitor')).toEqual(replacement);
+  });
+
   it('claims a jumped target once across concurrent workers', async () => {
     const id = await make();
     await Promise.all(Array.from({ length: 5 }, () => enqueue(id, { ...rate(), rate: 53.2 })));

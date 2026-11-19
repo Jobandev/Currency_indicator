@@ -8,7 +8,7 @@ GitHub Actions is the fallback. Standard hosted runners in public repositories a
 
 The Worker has no public route. It POSTs to one exact HTTPS endpoint with bearer authentication, refuses redirects, and allows up to 310 seconds for the backend's configured 300-second function. The next tick handles recovery after a failed request. Firestore continues to own overlap prevention and notification idempotency. Only one scheduler should be enabled for each backend. A busy response means another invocation holds the lease. A successful response is not proof of notification delivery.
 
-For Deployment-Protected Preview, the Worker must receive `VERCEL_AUTOMATION_BYPASS_SECRET` and send it as `x-vercel-protection-bypass`. The request uses manual redirect handling so an SSO or other 3xx response is recorded as `http_error` with its status instead of being mislabeled `network_error`. The bypass secret is not included in the URL or log payload.
+For a dedicated, approved Vercel Preview project using Automation Bypass, store its secret as `VERCEL_AUTOMATION_BYPASS_SECRET` on the scheduler. The Worker sends it as `x-vercel-protection-bypass`. The request uses manual redirect handling and records an SSO or other 3xx response as `http_error` with its status. The secret is supplied in a header and omitted from scheduler logs.
 
 ## Deployment Protection decision
 
@@ -47,6 +47,7 @@ After explicit approval to create the preview Worker and provision secrets, depl
 npx wrangler@4.165.0 deploy --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret put MONITOR_URL --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret put CRON_SECRET --config scheduler/wrangler.preview-paused.toml
+npx wrangler@4.165.0 secret put VERCEL_AUTOMATION_BYPASS_SECRET --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret list --config scheduler/wrangler.preview-paused.toml
 ~~~
 

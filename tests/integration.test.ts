@@ -20,7 +20,7 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
     const { app } = await import('../server/app');
     const { db } = await import('../server/firebase');
     database = db;
-    const { enqueue, deliver } = await import('../server/monitor');
+    const { enqueue, deliver, monitor } = await import('../server/monitor');
     const authBase = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/';
     async function account(method: string, body: object) {
       const response = await fetch(authBase + method + '?key=fake-key', {
@@ -72,6 +72,12 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
       .send({ pair: 'NZD/INR', condition: 'gte', targetRate: 53, immediate: false });
     expect(created.status).toBe(201);
     const id = created.body.id;
+    expect(await monitor()).toEqual({ processed: 0 });
+    expect((await database.collection('system').doc('monitor').get()).data()).toMatchObject({
+      lastRatesOk: true,
+      until: 0,
+    });
+    expect((await database.collection('alerts').doc(id).get()).data()?.status).toBe('active');
     await Promise.all([enqueue(id, { ...rate, rate: 53.2 }), enqueue(id, { ...rate, rate: 53.2 })]);
     const sender = vi.fn().mockResolvedValue('test-email-id');
     await Promise.all([

@@ -191,6 +191,7 @@ export async function monitor() {
   });
   if (!claimed) return { busy: true };
   let rateError = false;
+  let completedAt: number | undefined;
   try {
     try {
       await refreshIntraday();
@@ -203,13 +204,11 @@ export async function monitor() {
     try {
       let cursor = '';
       for (;;) {
-        const page = await db
+        const query = db
           .collection('alerts')
           .where('status', '==', 'active')
-          .orderBy('__name__')
-          .startAfter(cursor)
-          .limit(200)
-          .get();
+          .orderBy('__name__');
+        const page = await (cursor ? query.startAfter(cursor) : query).limit(200).get();
         for (const source of ['daily', 'intraday']) {
           const selected = page.docs.filter((doc) => (doc.data().rateSource || 'daily') === source);
           if (!selected.length) continue;
@@ -257,12 +256,18 @@ export async function monitor() {
       await deliver(j.id);
       await pause(600);
     }
-    await lock.set({ lastCompletedAt: Date.now(), lastRatesOk: !rateError }, { merge: true });
+    completedAt = Date.now();
     return rateError ? { processed: jobs.size, rateError: true } : { processed: jobs.size };
   } finally {
     await db.runTransaction(async (t) => {
       const s = await t.get(lock);
-      if (s.data()?.token === token) t.update(lock, { until: 0 });
+      if (s.data()?.token !== token) return;
+      t.update(lock, {
+        until: 0,
+        ...(completedAt === undefined
+          ? {}
+          : { lastCompletedAt: completedAt, lastRatesOk: !rateError }),
+      });
     });
   }
 }

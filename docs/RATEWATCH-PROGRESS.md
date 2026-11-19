@@ -2,58 +2,40 @@
 
 Updated 19 November 2026.
 
-## Baseline
+## Milestone A and architecture
 
-The complete development baseline is local `preview` at `d64766c`, matching `origin/preview`. It includes the earlier commits `b3bd7f1` and `50a93b5`. Local `main` remains at `7f612da` and was not changed.
+RateWatch uses React and Vite on Vercel, the Node/Express API on Vercel, Firebase Authentication and Firestore, and a standalone Cloudflare Worker that calls the authenticated monitoring endpoint on schedule. The Node API owns rate refresh, monitoring, leases, queue processing, and delivery.
 
-The pre-recovery local changes were preserved in stash `pre-recovery local preview work` and a patch backup under the session state directory. They were not reapplied because the recovered branch already contains a more complete implementation of the same PWA/SEO surfaces.
+Review the local `ratewatch-consolidation` branch based on the recorded `origin/preview` at `8d1cbc5`. The original Windows checkout is `preview` at `d64766c`, with 11 modified tracked files and an intact `.env.example`. Local `main` and its recorded remote ref resolve to `7f612da`. The baseline was recovered from local Git metadata. Current remote tips were outside this local milestone.
 
-## Preserved functionality
+The access-restricted backup contains the full original checkout, including Git metadata, modified and ignored files, local credentials and configuration, and `video-output/`. A follow-up inventory comparison passed and the backup opened at `d64766c`. SHA-256 comparisons passed for the four local environment files, media, Worker prototype, and local Vercel configuration. The original Windows checkout remains available with its working changes.
 
-- Vercel React/Vite frontend and Express API.
-- Firebase Authentication, Firestore rules, indexes, ownership checks, transactions, leases, and queue deduplication.
-- Cloudflare Worker Cron scheduler only; no Cloudflare frontend/API host.
-- Brevo email adapter and smoke-test tooling.
-- Firebase Cloud Messaging device registration, opt-in, token cleanup, and push alerts.
-- Frankfurter daily/history rates and delayed exchangerate.dev intraday observations.
-- Weekly/monthly digests with signed unsubscribe links.
-- Alert pause/resume, one-time completion, notification preferences, and status synchronization.
-- Transfer Planner persistence, editing, deletion, user ownership, and alert linking.
-- Crawlable public pages, PWA manifest/service worker/offline fallback, noindex private routes, sitemap, canonical metadata, and structured data.
+## Reconciliation
 
-## Verification
+- Retained the website, API, Firebase rules and indexes, safe environment template, scheduler, and baseline tests. The recovered baseline includes saved transfer plans and alert linking, rates and charts, alerts, digests, Brevo and push support, PWA assets, and public metadata and indexing rules.
+- Recovered the newer scheduler diagnostics and tests, including manual redirect handling, HTTP redirect status reporting, and optional Automation Bypass header support for an approved dedicated Preview project. The Shareable Link cookie experiment and its test are preserved in the backup for reference. Live scheduled POST behavior remains unverified.
+- Ported two safeguards from the Windows monitor changes. The initial Firestore query starts without a document-ID cursor. Completion and lease release are recorded together under the current lease token. Kept Node pagination, batching, and delivery behavior.
+- Preserved the full-app Worker prototype, its runbook, three REST adapter test files, and its TypeScript config in the private backup. The active checkout has no prototype source, imports, scripts, or test references. The Windows copy retains both the experimental edits and their original file locations.
 
-- Mocked suite: PASS — 74 passed, 1 skipped; 75 total.
-- TypeScript: PASS.
-- ESLint: PASS.
-- Production build: PASS.
-- Firebase emulator: BLOCKED by a 403 download failure through the environment DNS monitoring proxy.
-- Deployed Preview, Cloudflare runtime, Brevo delivery, FCM delivery, and mobile/browser field metrics: NOT VERIFIED.
+## Local verification
 
-## Scheduler connectivity investigation
+| Check | Result |
+| --- | --- |
+| npm ci | Passed. npm warned about the Node 26 engine range for superstatic, deprecated packages, and three dependency install scripts subject to npm approval. |
+| TypeScript and ESLint | Passed. |
+| Vitest | 75 passed. The emulator integration test was skipped in this run and executed separately. |
+| Firebase Auth and Firestore emulators | 1 integration test passed against demo-ratewatch with mocked delivery. It covered enrollment, sign-in, ownership, real Firestore monitor scanning, and alert completion. |
+| Production build | Passed. Rollup removed two misplaced annotations in Zod. |
+| Git whitespace and prototype-reference checks | Passed. |
 
-- Paused Cloudflare Worker Cron configuration: PASS — Wrangler dry-run succeeds and no Cron trigger is configured.
-- Worker unit tests: PASS — 6 tests cover successful POST parsing, busy responses, unsafe destinations, HTTP failures, timeout classification, production-host rejection, the 302 distinction, and the Vercel Automation Bypass header.
-- Confirmed mechanism: Vercel Deployment Protection returns SSO/302 responses. The Worker now uses manual redirect handling and can send `x-vercel-protection-bypass` from a protected secret.
-- `network_error` from the earlier deployment remains ambiguous without Cloudflare response status/logs and the Vercel bypass result. The smallest fix is in place, but live verification is blocked until Cloudflare and Vercel credentials are available.
+The unit tests, production build, and emulator suite passed on retry after the Windows sandbox blocked esbuild configuration resolution and Firebase CLI configuration access. The emulator run logged a metadata lookup warning and completed successfully.
 
-## Remote authentication status
+## Milestone B
 
-- Vercel CLI: NOT AUTHENTICATED; no Vercel token or project variables are available in this session.
-- Cloudflare CLI: NOT AUTHENTICATED; no Cloudflare API or account variables are available in this session.
-- Remote Preview deployment, Automation Bypass settings, Worker secrets, Worker logs, and deployment-specific Shareable Link state are therefore NOT VERIFIED.
-- Project-wide Automation Bypass is not an approved option because the existing project can host Production.
-- The existing deployment-specific Shareable Link is suitable only for manually reviewed read-only/browser diagnostics unless a separately verified machine-safe bypass is available.
+1. Review the consolidation diff and confirm the current remote Preview tip. Reconcile any later commits before publishing.
+2. Inspect the protected Vercel Preview deployment, Firebase Preview isolation, scoped variable names, Worker version, and actual remote Cron state using authenticated read-only access. The paused source config specifies an empty trigger list. Remote trigger state remains unknown.
+3. Investigate timeouts and protection responses while keeping Cron paused. If a dedicated Preview project is needed, obtain separate approval before creating it. Keep project-wide Automation Bypass off the project that hosts Production.
+4. After isolation and approval, verify the protected GET, then perform one controlled synthetic Preview POST with live delivery disabled. Review the Worker and backend results before any Cron activation decision.
+5. Validate saved plans, linked alerts, charts, mobile PWA, accessibility, SEO, and security in Preview. Obtain separate approval for synthetic Brevo and FCM delivery. Review hosting terms and legal requirements before commercial launch.
 
-## Cleanup
-
-No obsolete Cloudflare application frontend/backend files were found on the recovered branch. The retained `scheduler/` directory is the only Cloudflare implementation. No remote branches or production resources were deleted. No uncertain Docker or Firebase configuration was removed.
-
-The temporary local backup branch remains until the consolidated commit is created; it can then be removed safely. The preservation stash remains because it contains the prior session's uncommitted user-visible changes.
-
-## Remaining work
-
-1. Run the emulator suite in an environment that can download or already has the Firebase emulator binaries.
-2. Validate the isolated Vercel Preview/Firebase configuration and paused Cloudflare Worker using the documented runbooks.
-3. Perform explicitly approved synthetic Brevo and FCM Preview tests.
-4. Complete legal, accessibility, mobile PWA, and production performance review before deployment.
+No deploy, push, Cron activation, production Firebase operation, billing change, or live notification send occurred in Milestone A.
