@@ -1,16 +1,22 @@
 # Validation record
 
-Local checks on 9 November 2026:
+Updated 19 November 2026 against local `preview` at `d64766c`.
 
-- TypeScript frontend/backend: passed.
-- ESLint: passed.
-- Mocked API/engine/provider suite: 28 tests passed; Firebase integration is skipped in the ordinary npm test command unless emulator environment variables are present.
-- Firebase Auth and Firestore emulator integration: passed separately. Includes actual registration, verification OOB code, login, authenticated REST alert creation, concurrent transactional queue claims and delivery claims, one mocked email, completed status, user isolation, own-document reads and denied client writes. The emulator logged transaction lock timeouts under intentional concurrency and the SDK retried successfully.
-- Production Vite + backend build: passed; dashboard is lazy-loaded. Upstream Zod pure-comment annotations cause harmless Rollup warnings.
-- npm audit: zero vulnerabilities after dependency updates/overrides.
-- Real Frankfurter adapter: all eight supported pairs and 31 history points returned; no keys required.
-- Production HTTP smoke test: homepage and health returned 200, rates endpoint returned eight real rates, historical endpoint returned data.
+## Local results
 
-Not established by these checks: real Firebase cloud configuration/IAM/index readiness, Google OAuth popup on a deployed hostname, actual Resend inbox delivery/bounces, a running hosted scheduler, Docker execution, or browser-rendered desktop/mobile visual/keyboard QA. No browser preview tool was available. No real emails were sent, cloud services provisioned, or app deployed. Configure your project and perform the launch smoke tests in SETUP.md and DEPLOYMENT.md.
+- `npm test`: PASS — 72 passed, 1 skipped (73 total).
+- `npm run typecheck`: PASS.
+- `npm run lint`: PASS.
+- `npm run build`: PASS.
+- Firebase Auth/Firestore emulator integration: BLOCKED because Firebase CLI could not download the Firestore emulator (`403`, DNS monitoring proxy).
 
-The ignored .tools directory contains a portable Temurin Java 21 JRE for local emulator validation. It does not alter system Java. CI uses Java 21 and Node 24.
+The recovered preview branch includes mocked coverage for Brevo, FCM device ownership, delayed intraday observations, digest deduplication/unsubscribe, scheduler safety, alert pause/resume, and Transfer Planner ownership/edit/delete/linking.
+
+## Not verified locally
+
+- Deployed `ratewatch-preview` Firebase configuration, IAM, indexes, or rules.
+- Cloudflare account identity, deployed Worker, Cron propagation, or Vercel Preview monitor POST.
+- Real Brevo inbox delivery, FCM delivery, mobile installation, or device-token rotation.
+- Production deployment, Core Web Vitals, legal approval, or production credentials.
+
+No production resource, Firebase project, Vercel deployment, Cloudflare resource, recipient, or device was modified by these checks.

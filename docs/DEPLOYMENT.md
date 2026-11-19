@@ -1,42 +1,44 @@
-# Deployment and costs — no resources created
+# Deployment and costs — Vercel + Firebase + Cloudflare Scheduler
 
-Reviewed 9 November 2026. Provider plans can change. Recheck the linked official pricing and the provider checkout before approving deployment. This repository does not deploy automatically.
+The active application is hosted on the existing Vercel project. Cloudflare is only an authenticated scheduled HTTPS caller and does not host the frontend or API.
 
-## Cost choices
+## Components
 
-| Component                        | Candidate               | Limits and billing considerations                                                                                                                                                                                                        |
-| -------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth + database                  | Firebase Spark          | No-cost quota; Firestore includes 50,000 reads / 20,000 writes per day. Spark stops at applicable limits. Blaze requires a billing account and can charge beyond included usage; budget alerts are not hard caps.                        |
-| Rates                            | Frankfurter public v2   | Free, no API key; daily indicative data, no timing SLA. Respect fair use.                                                                                                                                                                |
-| Email                            | Resend Free             | Published free tier: 3,000/month, 100/day. Verify current plan. A verified sending domain is needed and a new domain has separate registration cost.                                                                                     |
-| Web frontend + API               | Render Free web service | Supports this Express app, but sleeps after 15 idle minutes and takes roughly a minute to wake. 750 shared free instance hours/month and bandwidth/build limits. Free instances are explicitly not recommended by Render for production. |
-| Free scheduler                   | cron-job.org            | Free custom HTTP method/headers and schedules. Request timeouts, cold starts, and quotas make this a best-effort pilot, not a guaranteed 15-minute service.                                                                              |
-| More dependable scheduled worker | Render Cron Job         | Paid: current docs describe a US$1/month minimum per job plus usage. Requires billing/payment setup and explicit approval. It runs separately from the sleeping web service.                                                             |
+| Component | Final choice | Status |
+| --- | --- | --- |
+| Web/API | Existing Vercel project | Configured by `vercel.json`; Production remains on `main`. |
+| Auth/data | Firebase Authentication + Firestore | Rules, indexes, Admin ownership checks, and transactions are checked in. |
+| Daily/history rates | Frankfurter v2 | Public daily reference and historical data. |
+| Delayed intraday rates | exchangerate.dev | Optional server-only keyed provider. |
+| Scheduler | Cloudflare Worker Cron | Preview config is paused by default; no production activation here. |
+| Email | Brevo | HTTPS adapter and smoke-test tooling are included. |
+| Push | Firebase Cloud Messaging | Device registration and push delivery code are included. |
 
-Sources: [Firebase plans](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans), [Firestore pricing](https://cloud.google.com/firestore/pricing), [Render free limitations](https://render.com/docs/free), [Render cron jobs](https://render.com/docs/cronjobs), [Render pricing](https://render.com/pricing), [Resend pricing](https://resend.com/pricing), [Resend free tier](https://resend.com/blog/new-free-tier), [cron-job.org](https://cron-job.org/en/).
+No production credentials, Firebase projects, Vercel deployments, Cloudflare resources, billing, recipients, or devices are changed by local development.
 
-A zero-hosting-cost pilot is possible within quotas if you already own a sending domain, with reduced reliability. A public service promising reliable unattended checks should use an approved paid scheduled worker or another scheduler with adequate execution time. Neither option depends on your laptop. No service, card, domain, or subscription has been provisioned.
+## Vercel
 
-## Publish the web app when approved
+Use the existing project with:
 
-1. Put this repository in your chosen Git host; do not upload .env, service-account files, .tools, or node_modules.
-2. Create a Render Node web service using Node 24. Select Free for a pilot or explicitly approve a paid instance. Review payment/card requirements and spend settings at that time.
-3. Build command: npm ci && npm run build && npm prune --omit=dev. Start command: npm start. Health path: /api/health. Root directory: repository root. The server binds 0.0.0.0 and uses Render's PORT.
-4. In build environment set all four public VITE_FIREBASE_ values. In server environment set FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT_JSON (or configured application-default credentials), RESEND_API_KEY, EMAIL_FROM, APP_URL (exact public origin), CRON_SECRET (random 32+ characters), NODE_ENV=production, TRUST_PROXY=1 when the platform has exactly one trusted proxy. Do not set USE_EMULATORS=true. Same-origin serving needs no VITE_API_URL.
-5. Rebuild after changing VITE_ values. Private runtime secrets must never have that prefix. Use the platform secret store. Firebase Admin service accounts bypass rules; restrict IAM and keep keys private.
-6. Deploy Firestore rules/indexes and add the production hostname to Firebase Auth authorized domains. Test verification and Google popup flows on that hostname.
-7. Review the legal drafts and add the operator's actual legal/support information before accepting public users.
+- Install: `npm ci`
+- Build: `npm run test:runtime && npm run build`
+- Health: `/api/health`
 
-A multi-stage Dockerfile is also supplied. It accepts only public Firebase values as build args; inject private secrets at runtime. No Docker build or container deployment is claimed as tested unless separately validated.
+Preview must use the `ratewatch-preview` Firebase project and Preview-only Admin identity. Production must continue using `indicator-6bf61`. Set public `VITE_FIREBASE_` values at build time and private Firebase Admin, Brevo, `APP_URL`, `CRON_SECRET`, `NODE_ENV`, and proxy settings only in Vercel environment configuration. Never expose private credentials through `VITE_` variables.
 
-## Schedule every 15 minutes
+## Cloudflare monitor trigger
 
-Preferred approved minimal-cost option: create a Render Cron Job from the same repo, build npm ci && npm run build, command npm run monitor, cron expression */15 * * * * (UTC; a 15-minute interval is timezone-independent). Add the same private Firebase/Resend/APP_URL variables. It does not need CRON_SECRET because it calls the worker locally. Review the minimum charge and usage estimate before creation. This job continues when the web service sleeps or your computer is off.
+The Worker sends:
 
-Free pilot option: create a cron-job.org job with URL https://YOUR_HOST/api/jobs/monitor, method POST, header Authorization: Bearer YOUR_CRON_SECRET, JSON body {}, interval every 15 minutes. Never put the secret in the URL. Enable failure emails. Trigger one manual run and check JSON/structured logs. Sleeping servers can exceed the scheduler timeout; do not treat registration of the schedule as proof of successful monitoring. Check repeated real runs, including after an idle period. Do not rely on an in-process timer on a free sleeping host. No browser setInterval is used.
+```text
+POST https://YOUR_VERCEL_HOST/api/jobs/monitor
+Authorization: Bearer YOUR_CRON_SECRET
+```
 
-## Capacity and launch acceptance
+The checked-in preview scheduler rejects redirects, unsafe URLs, the known production hostname, invalid secrets, and malformed responses. Keep the Cron trigger paused while validating Preview DNS/TLS, redirects, timeout behavior, and monitor completion. Never put the secret in the URL or logs.
 
-At 96 checks/day, 500 active alerts already imply about 48,000 alert document reads/day before profiles, queue, transaction retries, rates, and web activity. Thousands of users will exceed free quotas. The worker pages active alerts in blocks of 200 and handles up to 100 due messages per invocation. Jobs must finish within the 10-minute lease; increase capacity or shard scheduled work before approaching it. A second run is safe but not free. Use shared rate limiting and explicit plan configuration before scaling horizontally.
+Use `docs/SCHEDULER-AND-LIVE-TESTS.md` for dry-run, paused deployment, activation, tailing, and rollback procedures. Only one scheduler should be active for a backend.
 
-Before launch verify: credentials work, indexes are ready, scheduled jobs run with the browser closed, a real own-account smoke email arrives, retries do not duplicate, deletion succeeds after recent sign-in, and provider dates match. Confirm budget/quota and scheduler failure notifications. Roll back app releases using your host; do not roll back outbox generations or manually delete delivery records to retry mail.
+## Launch acceptance
+
+Before enabling any schedule or sending notifications, verify Firebase Admin permissions, Firestore indexes/rules, alert ownership, queue leases, notification deduplication, one approved Brevo recipient, and one approved FCM test device in Preview. Complete the legal, accessibility, mobile PWA, and performance checks in `docs/PRODUCTION-VERIFICATION.md`.

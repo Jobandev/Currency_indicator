@@ -302,6 +302,7 @@ describe('provider adapters', () => {
     await expect(new Frankfurter().latest()).rejects.toThrow('503');
   });
   it('sends stable email idempotency header and handles failure', async () => {
+    process.env.EMAIL_PROVIDER = 'resend';
     process.env.RESEND_API_KEY = 'test';
     process.env.EMAIL_FROM = 'test@example.test';
     const fetch = vi

@@ -12,15 +12,15 @@
 
 Firestore collections: users, alerts, exchangeRates, rateHistory (cached 30-day series), notificationLogs (outbox + receipt records), system (monitor lease/health). Timestamps are UTC epoch milliseconds except providerTimestamp (ISO date). Alert documents include the requested fields plus pair, generation, and immediate. Queue records hold private recipient payloads, lease ownership, attempts, retry time, and message ID. Client rules expose only an owner's profile/alerts; notification history goes through a filtered authenticated API.
 
-## Resend
+## Brevo
 
-1. Create an account at https://resend.com/. Keep the free plan unless you expressly choose otherwise.
-2. Domains — Add domain. You need a domain you own to send publicly. Add Resend's specified SPF/DKIM DNS records, verify them, and consider DMARC. Use a sending subdomain if appropriate. [Sender requirements](https://resend.com/docs/dashboard/domains/introduction).
-3. API Keys — create a sending key scoped appropriately. Store it as RESEND_API_KEY on the server. Set EMAIL_FROM to Ratewatch <alerts@your-verified-domain.com>.
-4. For initial testing, Resend's testing sender may restrict recipients to your own account. This is not a public sender configuration.
-5. Register your own account, verify the Firebase email, then intentionally create an already-satisfied alert with immediate consent. Confirm the accepted record and inspect the actual inbox and Resend logs. Do not send real emails in automated tests.
+1. Create a Brevo account and activate transactional sending.
+2. Verify the sender and authenticate the sending domain with Brevo's SPF/DKIM guidance.
+3. Create a server-only API key and set `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, and `BREVO_SENDER_EMAIL`.
+4. For initial testing, use one approved recipient you control and the explicit smoke-test command in `docs/SCHEDULER-AND-LIVE-TESTS.md`.
+5. Register your own account, verify the Firebase email, then intentionally create an already-satisfied alert with immediate consent. Confirm provider acceptance, inbox delivery, and Brevo logs. Do not send real emails in automated tests.
 
-Owning a sending domain may cost money if you do not already have one. No domain has been bought. Provider acceptance does not guarantee delivery; inspect bounces/spam in Resend.
+Provider acceptance does not guarantee delivery; inspect bounces, spam, and transactional logs in Brevo. Gmail and Resend remain explicit local alternatives supported by the adapter, not the production default.
 
 ## Exchange-rate API
 

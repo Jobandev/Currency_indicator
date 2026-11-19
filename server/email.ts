@@ -9,7 +9,7 @@ export type EmailPayload = {
   text: string;
 };
 export function emailProvider(): 'gmail' | 'resend' | 'brevo' {
-  const provider = process.env.EMAIL_PROVIDER || 'resend';
+  const provider = process.env.EMAIL_PROVIDER || 'brevo';
   if (provider !== 'gmail' && provider !== 'resend' && provider !== 'brevo')
     throw new Error('Unsupported email provider');
   return provider;

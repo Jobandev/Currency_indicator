@@ -1,13 +1,13 @@
 # Ratewatch
 
-A free currency target-alert MVP built with React, Vite, TypeScript, Tailwind CSS, React Router, Lucide, Recharts, Express, Firebase Authentication, Firestore, and Resend. Built in this workspace; nothing has been deployed or connected to a paid account.
+A currency target-alert application built with React, Vite, TypeScript, Tailwind CSS, React Router, Lucide, Recharts, Express, Firebase Authentication, Firestore, Brevo, and Firebase Cloud Messaging.
 
 ## Start locally
 
 Use Node.js 24 LTS (recommended; this machine has Node 26). Dependencies are installed and package-lock.json is committed-ready.
 
 1. Copy .env.example to .env.
-2. Configure Firebase and Resend using [Setup](docs/SETUP.md). Never paste private keys into VITE_ variables.
+2. Configure Firebase and Brevo using [Setup](docs/SETUP.md). Never paste private keys into VITE_ variables.
 3. Run npm install (or npm ci on a clean checkout).
 4. Run npm run dev.
 5. Open http://localhost:5173. The API runs on port 3001.
@@ -29,25 +29,25 @@ Without configuration, the landing and account pages render but sign-in is expli
 
 ## Included
 
-- Responsive landing page, protected dashboard, daily reference history, converter, notifications, profile, and clearly marked legal drafts.
+- Responsive landing page, crawlable currency pages, protected dashboard, daily and delayed reference history, converter, notifications, profile, planner, and clearly marked legal drafts.
 - Email/password registration and login, Google popup sign-in, verification, persistent sessions, password reset, logout, account deletion.
 - Eight initial pairs, above/below inclusive targets, edit/delete/reactivate, explicit immediate-trigger consent, three active-or-processing alerts per account.
-- Server-side monitoring endpoint and standalone worker. Configure an external scheduler every 15 minutes; the browser never schedules checks.
-- Atomic Firestore transitions, per-user transaction serialization, generation-specific durable outbox, leases, retries, stable email payloads and idempotency keys.
+- Server-side monitoring endpoint, standalone worker, and Cloudflare Worker Cron trigger. Cloudflare only schedules the Vercel API; it does not host the application.
+- Atomic Firestore transitions, per-user transaction serialization, generation-specific durable outbox, leases, retries, stable Brevo payloads and idempotency keys.
 - Authenticated API, verified email requirement, ownership checks, strict validation, CORS, Helmet, request limits, structured logs, Firestore rules and indexes.
 - Unit/API tests with mocked exchange and email services; a Firebase emulator integration test and CI workflow.
 
 ## Rate accuracy
 
-[Frankfurter v2](https://frankfurter.dev/) is a free, keyless provider of daily reference rates. This product checks every 15 minutes but does not claim intraday prices. UI dates come from the provider; fetchedAt records retrieval separately. Source dates older than five days or cache retrieval older than 20 minutes cannot trigger alerts. Weekends may legitimately show the last business-day reference. For intraday alerts, replace RateProvider with a suitably licensed provider and revisit freshness rules.
+[Frankfurter v2](https://frankfurter.dev/) supplies daily reference and historical rates. Where configured, exchangerate.dev supplies delayed intraday observations; daily-only legs are never used for intraday alerts. Provider dates and retrieval timestamps remain distinct.
 
 ## Email semantics
 
-A completed alert means Resend accepted the API request, not proof of inbox delivery. The dashboard says accepted. Delivery/bounce diagnostics remain in the Resend dashboard; automatic delivery webhooks are not implemented. The immutable outbox payload and key are retried within a bounded window. Resend retains keys for [24 hours](https://resend.com/docs/dashboard/emails/idempotency-keys); unresolved jobs are held for review after 23 hours instead of risking another send. This is an at-most-once preference at that boundary, not an impossible distributed exactly-once guarantee. See [operations](docs/OPERATIONS.md).
+A completed alert means Brevo accepted the API request, not proof of inbox delivery. The dashboard says accepted. Delivery/bounce diagnostics remain in Brevo; automatic delivery webhooks are not implemented. Immutable payloads and idempotency keys are retried within a bounded window, with ambiguous jobs held for review. See [operations](docs/OPERATIONS.md).
 
 ## Architecture
 
-Browser → Express REST API → Firebase Admin / Firestore. Firebase client Auth obtains an ID token; the backend verifies it with revocation checks and derives the user ID itself. All mutations go through the backend; Firestore rules deny client writes. A hosted scheduler calls the secret-protected job endpoint or invokes the standalone worker. Rates are grouped by base currency and shared across users. Matching alerts atomically become processing alongside one notificationLogs outbox record. Delivery obtains a two-minute lease, calls Resend with the stored payload/key, and transactionally marks accepted and completed. Processing alerts count toward the free limit.
+Browser → Vercel-hosted Express API → Firebase Admin / Firestore. Firebase client Auth obtains an ID token; the backend verifies it with revocation checks and derives the user ID itself. All mutations go through the backend; Firestore rules deny client writes. Cloudflare Worker Cron calls only the secret-protected Vercel monitor endpoint. Rates are grouped by base currency and shared across users. Matching alerts atomically become processing alongside one notificationLogs outbox record. Delivery obtains a two-minute lease, sends through Brevo or FCM, and transactionally marks accepted and completed.
 
 See [setup](docs/SETUP.md), [deployment and costs](docs/DEPLOYMENT.md), and [operations/troubleshooting](docs/OPERATIONS.md).
 
