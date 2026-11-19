@@ -1,37 +1,34 @@
-const contours = Array.from({ length: 16 }, (_, index) => index);
+﻿const ribs = Array.from({ length: 19 }, (_, index) => index);
 
 export default function RateAtmosphere() {
   return (
-    <svg
-      className="rw-atmosphere"
-      viewBox="0 0 1440 650"
-      preserveAspectRatio="xMidYMax slice"
-      aria-hidden="true"
-      fill="none"
-    >
+    <svg className="rw-atmosphere" viewBox="0 0 720 620" aria-hidden="true" fill="none">
       <defs>
-        <linearGradient id="rw-contour-ink" x1="0" x2="1440" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#768c84" stopOpacity="0" />
-          <stop offset=".25" stopColor="#7eaaa0" stopOpacity=".45" />
-          <stop offset=".49" stopColor="#aedbc4" stopOpacity=".66" />
-          <stop offset=".76" stopColor="#7894a4" stopOpacity=".3" />
-          <stop offset="1" stopColor="#7894a4" stopOpacity="0" />
-        </linearGradient>
+        <pattern id="rw-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M24 0H0V24" stroke="#7770d8" strokeOpacity=".25" />
+        </pattern>
+        <pattern id="rw-ink" width="5" height="5" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r=".55" fill="#5750ac" opacity=".36" />
+        </pattern>
       </defs>
-      {contours.map((index) => (
-        <path
-          key={index}
-          d="M-90 604C94 616 155 550 261 506S421 472 511 501 637 563 727 488 778 387 903 362 1118 482 1495 270"
-          transform={`translate(0 ${index * 9 - 18}) skewY(${index * -0.28})`}
-          stroke="url(#rw-contour-ink)"
-          opacity={0.54 - index * 0.025}
-        />
-      ))}
-      <g fill="#b9e5cf">
-        <circle cx="261" cy="488" r="2" opacity=".7" />
-        <circle cx="511" cy="495" r="2.5" opacity=".75" />
-        <circle cx="727" cy="485" r="1.75" opacity=".65" />
+      <path d="M88 140 509 32 662 143 239 252Z" fill="#e7e3fc" />
+      <path d="M88 140 239 252v306L88 446Z" fill="#c7bcf0" />
+      <path d="M239 252 662 143v306L239 558Z" fill="#ada2e9" />
+      <path d="M239 252 662 143v306L239 558Z" fill="url(#rw-grid)" />
+      <path d="M88 140 509 32 662 143 239 252Z" fill="url(#rw-ink)" />
+      <g stroke="#7770d8" strokeWidth="1.35">
+        {ribs.map((index) => (
+          <path
+            key={index}
+            d="M35 481C130 459 164 349 251 325S394 400 484 350 557 178 691 140"
+            transform={`translate(0 ${index * 6 - 56})`}
+            opacity={0.75 - index * 0.023}
+          />
+        ))}
+        <circle cx="569" cy="119" r="27" />
+        <circle cx="569" cy="119" r="42" strokeDasharray="3 6" />
       </g>
+      <path d="m621 435 36-9v35l-36 9Z" fill="#d8ff32" />
     </svg>
   );
 }

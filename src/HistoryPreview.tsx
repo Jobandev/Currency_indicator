@@ -7,76 +7,123 @@ type Point = { date: string; rate: number };
 
 export default function HistoryPreview() {
   const section = useRef<HTMLElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
   const [points, setPoints] = useState<Point[]>([]);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
-    if (!section.current) return;
     const controller = new AbortController();
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      observer.disconnect();
-      api<Point[]>('/history?pair=NZD%2FINR', { signal: controller.signal })
-        .then((rows) => {
-          if (!controller.signal.aborted)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        setStatus('loading');
+        api<Point[]>('/history?pair=NZD%2FINR', { signal: controller.signal })
+          .then((rows) => {
+            if (controller.signal.aborted) return;
             setPoints([...rows].sort((a, b) => a.date.localeCompare(b.date)));
-        })
-        .catch(() => {});
-    });
-    observer.observe(section.current);
+            setStatus('ready');
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) setStatus('error');
+          });
+      },
+      { rootMargin: '120px' },
+    );
+    if (section.current) observer.observe(section.current);
     return () => {
       observer.disconnect();
       controller.abort();
     };
-  }, []);
-  const values = points.map((point) => point.rate);
+  }, [attempt]);
+
+  const first = points[0];
+  const last = points.at(-1);
+  const values = points.map(({ rate }) => rate);
   const high = Math.max(...values);
   const low = Math.min(...values);
-  useEffect(() => {
-    const drawArea = canvas.current;
-    if (!drawArea || points.length < 2) return;
-    const context = drawArea.getContext('2d');
-    if (!context) return;
-    const { width, height } = drawArea;
-    context.clearRect(0, 0, width, height);
-    context.strokeStyle = '#216449';
-    context.lineWidth = 3;
-    context.lineJoin = 'round';
-    context.beginPath();
-    const start = Date.parse(points[0].date);
-    const duration = Math.max(1, Date.parse(points.at(-1)!.date) - start);
-    points.forEach((point, index) => {
-      const x = 6 + ((Date.parse(point.date) - start) / duration) * (width - 12);
-      const y =
-        high === low ? height / 2 : 6 + ((high - point.rate) / (high - low)) * (height - 12);
-      if (index) context.lineTo(x, y);
-      else context.moveTo(x, y);
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const change = first && last ? (last.rate / first.rate - 1) * 100 : 0;
+  const start = first ? Date.parse(first.date) : 0;
+  const duration = last ? Math.max(1, Date.parse(last.date) - start) : 1;
+  const line = points
+    .map(({ date, rate }) => {
+      const x = 5 + ((Date.parse(date) - start) / duration) * 590;
+      const y = high === low ? 90 : 8 + ((high - rate) / (high - low)) * 164;
+      return `${x},${y}`;
+    })
+    .join(' ');
+  const dateLabel = (date: string) =>
+    new Date(date).toLocaleDateString('en-NZ', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
     });
-    context.stroke();
-  }, [high, low, points]);
+
   return (
-    <section ref={section} className="section" aria-labelledby="history-preview-heading">
-      <h2 id="history-preview-heading">NZD to INR over the past month</h2>
-      {points.length > 1 && (
-        <>
-          <canvas
-            ref={canvas}
-            className="history-preview"
-            width={720}
-            height={180}
-            aria-hidden="true"
-          />
-          <p>
-            The daily reference rate ranged from {format(low)} to {format(high)} INR across{' '}
-            {points.length} observations.
-          </p>
-        </>
-      )}
-      <p>
-        Daily reference rates from <a href="https://frankfurter.dev/">Frankfurter</a>.
-      </p>
-      <Link className="text-link" to="/charts">
-        Explore historical exchange rates
-      </Link>
+    <section ref={section} className="rw-history" aria-labelledby="history-preview-heading">
+      <div className="rw-history-copy">
+        <h2 id="history-preview-heading">A month in motion.</h2>
+        <p>See how the New Zealand dollar moved against the Indian rupee over the past month.</p>
+        <Link className="rw-button" to="/charts">
+          Explore historical rates
+        </Link>
+      </div>
+      <div className="rw-chart">
+        <div className="rw-chart-heading">
+          <h3>NZD / INR</h3>
+          <span>Past month</span>
+        </div>
+        {status === 'ready' && points.length > 1 && first && last ? (
+          <>
+            <dl className="rw-chart-stats">
+              {[
+                ['High', format(high)],
+                ['Low', format(low)],
+                ['Average', format(average)],
+                ['Change', `${change > 0 ? '+' : ''}${change.toFixed(2)}%`],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <svg
+              className="rw-chart-plot"
+              viewBox="0 0 600 180"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path d="M0 8H600M0 49H600M0 90H600M0 131H600M0 172H600" />
+              <polyline points={line} pathLength="1" />
+            </svg>
+            <p className="rw-chart-dates">
+              <span>{dateLabel(first.date)}</span>
+              <span>{dateLabel(last.date)}</span>
+            </p>
+          </>
+        ) : (
+          <div className="rw-chart-status">
+            <p role="status">
+              {status === 'error'
+                ? 'Historical rates are unavailable.'
+                : status === 'ready'
+                  ? 'There are too few observations for this chart.'
+                  : 'Loading historical rates…'}
+            </p>
+            {status === 'error' && (
+              <button className="rw-button" onClick={() => setAttempt(attempt + 1)}>
+                Try again
+              </button>
+            )}
+          </div>
+        )}
+        <p className="rw-chart-source">
+          Daily reference rates from <a href="https://frankfurter.dev/">Frankfurter</a>.
+        </p>
+      </div>
     </section>
   );
 }

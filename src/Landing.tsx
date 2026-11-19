@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
+import { useContext } from 'react';
 import { ArrowUpRight, Bell, Clock3, Globe2, Mail, Plus, ShieldCheck } from 'lucide-react';
-import { PublicHeader, Footer, Currency, useRates, format } from './ui';
+import { PublicHeader, Footer, Currency, Session, useRates, format } from './ui';
 import Converter from './Converter';
 import HistoryPreview from './HistoryPreview';
 import InstallAction from './InstallAction';
@@ -8,6 +9,7 @@ import RateAtmosphere from './RateAtmosphere';
 import './redesign.css';
 export default function Landing() {
   const { rates, error, loading, load } = useRates();
+  const { user } = useContext(Session);
   return (
     <>
       <PublicHeader />
@@ -17,44 +19,51 @@ export default function Landing() {
           <div className="rw-hero-inner">
             <div className="rw-hero-copy">
               <h1 id="rw-home-title">
-                The right rate.
-                <br />
-                <span>At the right moment.</span>
+                Know the rate.
+                <span>Catch your moment.</span>
               </h1>
               <p>
                 Track exchange rates, explore historical trends, and get notified when your target
                 is reached.
               </p>
-              <Link className="rw-history-link" to="/charts">
-                Explore rate history
-              </Link>
+              <div className="rw-hero-actions">
+                <Link className="rw-button" to={user ? '/dashboard' : '/register'}>
+                  Get started
+                </Link>
+                <a className="rw-history-link" href="#history-preview-heading">
+                  Explore rate history
+                </a>
+              </div>
             </div>
             <Converter appearance="homepage" />
           </div>
         </section>
-        <section className="rate-strip">
-          <div>
-            <h2>Daily reference rates</h2>
-          </div>
-          {loading ? (
-            <span className="skeleton">Loading reference rates…</span>
-          ) : error ? (
-            <div className="inline-error">
-              Rates unavailable <button onClick={load}>Try again</button>
+        <div className="rw-market">
+          <section className="rw-rate-strip" aria-label="Daily reference rates">
+            <div>
+              <h2>Daily reference rates</h2>
             </div>
-          ) : (
-            rates.slice(0, 3).map((r) => (
-              <div className="strip-rate" key={r.currencyPair}>
-                <Currency pair={r.currencyPair} />
-                <strong>{format(r.rate)}</strong>
-                <small>
-                  Daily reference ·{' '}
-                  {new Date(r.providerTimestamp).toLocaleDateString('en-NZ', { timeZone: 'UTC' })}
-                </small>
+            {loading ? (
+              <span className="skeleton">Loading reference ratesâ€¦</span>
+            ) : error ? (
+              <div className="inline-error">
+                Rates unavailable <button onClick={load}>Try again</button>
               </div>
-            ))
-          )}
-        </section>
+            ) : (
+              rates.slice(0, 3).map((r) => (
+                <div className="rw-strip-rate" key={r.currencyPair}>
+                  <Currency pair={r.currencyPair} />
+                  <strong>{format(r.rate)}</strong>
+                  <small>
+                    Daily reference Â·{' '}
+                    {new Date(r.providerTimestamp).toLocaleDateString('en-NZ', { timeZone: 'UTC' })}
+                  </small>
+                </div>
+              ))
+            )}
+          </section>
+          <HistoryPreview />
+        </div>
         <section id="how-it-works" className="section">
           <h2>How rate alerts work</h2>
           <div className="three-grid">
@@ -66,12 +75,12 @@ export default function Landing() {
               },
               {
                 title: 'Set your moment',
-                text: 'Choose your target and whether you’re waiting for the rate to rise or fall.',
+                text: 'Choose your target and whether youâ€™re waiting for the rate to rise or fall.',
                 Icon: Bell,
               },
               {
-                title: 'We’ll keep watch',
-                text: 'Close the tab. Get on with your day. We’ll notify you when the monitored rate meets your target.',
+                title: 'Weâ€™ll keep watch',
+                text: 'Close the tab. Get on with your day. Weâ€™ll notify you when the monitored rate meets your target.',
                 Icon: Mail,
               },
             ].map(({ title, text, Icon }) => (
@@ -85,7 +94,6 @@ export default function Landing() {
             ))}
           </div>
         </section>
-        <HistoryPreview />
         <section id="features" className="feature-section">
           <div>
             <span className="eyebrow">LESS NOISE. MORE PEACE OF MIND.</span>
@@ -106,7 +114,7 @@ export default function Landing() {
             {[
               {
                 Icon: Clock3,
-                title: 'Watching while you’re away',
+                title: 'Watching while youâ€™re away',
                 text: 'Once scheduled monitoring is enabled, checks run independently of your device.',
               },
               {

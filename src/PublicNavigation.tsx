@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 
@@ -39,15 +39,15 @@ const groups = [
 export function RateWatchMark() {
   return (
     <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true">
-      <rect x=".5" y=".5" width="33" height="33" rx="9" fill="#17251f" stroke="#3c594b" />
+      <rect x=".5" y=".5" width="33" height="33" rx="9" fill="#10112f" stroke="#10112f" />
       <path
         d="M7 22.5 13 13l4.2 5.1L23.5 10M10.5 25l5.7-4.2 4 2.2 7-7.1"
-        stroke="#a8e6c1"
+        stroke="#d8ff32"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="23.5" cy="10" r="2" fill="#a8e6c1" />
+      <circle cx="23.5" cy="10" r="2" fill="#d8ff32" />
     </svg>
   );
 }
