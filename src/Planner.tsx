@@ -1,5 +1,6 @@
 ﻿import Converter from './Converter';
 import { Footer, PublicHeader } from './ui';
+import SavedPlans from './SavedPlans';
 
 export default function Planner() {
   return (
@@ -12,6 +13,7 @@ export default function Planner() {
           delivery time with your transfer provider before sending money.
         </p>
         <Converter />
+        <SavedPlans />
         <section className="chart-card">
           <h2>Check a provider quote</h2>
           <p>

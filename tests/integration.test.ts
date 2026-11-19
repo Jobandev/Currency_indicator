@@ -104,6 +104,52 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
     ).toBe(404);
     const firestoreUrl =
       'http://127.0.0.1:8080/v1/projects/demo-ratewatch/databases/(default)/documents/alerts/' + id;
+    const route = '/api/transfer-plans';
+    const otherHeader = 'Bearer ' + another.idToken;
+    const input = { pair: 'NZD/INR', amount: 500, targetRate: 53, alertId: id };
+    expect((await request(app).get(route)).status).toBe(401);
+    expect(
+      (await request(app).post(route).set('Authorization', otherHeader).send(input)).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post(route)
+          .set('Authorization', header)
+          .send({ ...input, pair: 'AUD/INR' })
+      ).status,
+    ).toBe(400);
+    const plan = await request(app).post(route).set('Authorization', header).send(input);
+    expect(plan.status).toBe(201);
+    expect(plan.body).toMatchObject(input);
+    const planRoute = route + '/' + plan.body.id;
+    expect((await request(app).get(route).set('Authorization', otherHeader)).body).toEqual([]);
+    expect(
+      (
+        await request(app)
+          .put(planRoute)
+          .set('Authorization', otherHeader)
+          .send({ ...input, alertId: null })
+      ).status,
+    ).toBe(404);
+    expect((await request(app).delete(planRoute).set('Authorization', otherHeader)).status).toBe(
+      404,
+    );
+    expect(
+      (
+        await request(app)
+          .put(planRoute)
+          .set('Authorization', header)
+          .send({ ...input, amount: 600 })
+      ).status,
+    ).toBe(200);
+    expect((await request(app).get(route).set('Authorization', header)).body).toMatchObject([
+      { ...input, amount: 600 },
+    ]);
+    const planUrl = firestoreUrl.replace('/alerts/' + id, '/transferPlans/' + plan.body.id);
+    expect((await fetch(planUrl, { headers: { Authorization: header } })).status).toBe(403);
+    expect((await request(app).delete(planRoute).set('Authorization', header)).status).toBe(200);
+    expect((await request(app).get(route).set('Authorization', header)).body).toEqual([]);
     expect(
       (await fetch(firestoreUrl, { headers: { Authorization: 'Bearer ' + another.idToken } }))
         .status,

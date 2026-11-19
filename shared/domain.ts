@@ -63,6 +63,19 @@ export const alertSchema = z
   })
   .strict();
 export type AlertInput = z.infer<typeof alertSchema>;
+export const transferPlanSchema = z
+  .object({
+    pair: pairSchema,
+    amount: z.number().positive().max(1e12),
+    targetRate: z.number().positive().max(1e6),
+    alertId: z
+      .string()
+      .regex(/^[\w-]{1,128}$/)
+      .nullable(),
+  })
+  .strict();
+export type TransferPlanInput = z.infer<typeof transferPlanSchema>;
+export type TransferPlan = TransferPlanInput & { id: string; updatedAt: number };
 export type Alert = AlertInput & {
   id: string;
   userId: string;

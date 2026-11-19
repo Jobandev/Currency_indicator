@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { auth, db, adminReady } from './firebase.js';
-import { alertSchema, pairSchema } from '../shared/domain.js';
+import { alertSchema, pairSchema, transferPlanSchema } from '../shared/domain.js';
 import { getRates, getAlertRates, history } from './rates.js';
 import { HttpError, saveAlert, deleteAlert, setAlertPaused } from './alerts.js';
 import { monitor, enqueue, deliver, log } from './monitor.js';
@@ -189,6 +189,47 @@ app.get('/api/alerts', async (_req, res) => {
   const s = await db.collection('alerts').where('userId', '==', res.locals.uid).get();
   res.json(s.docs.map((d) => d.data()).sort((a, b) => b.createdAt - a.createdAt));
 });
+app.get('/api/transfer-plans', async (_req, res) => {
+  const plans = await db.collection('transferPlans').where('userId', '==', res.locals.uid).get();
+  res.json(
+    plans.docs
+      .sort((a, b) => Number(b.get('updatedAt')) - Number(a.get('updatedAt')))
+      .map((plan) => ({ ...plan.data(), id: plan.id })),
+  );
+});
+const savePlan: express.RequestHandler = async (req, res) => {
+  const input = transferPlanSchema.parse(req.body);
+  const uid = res.locals.uid;
+  const profile = db.collection('users').doc(uid);
+  const plans = db.collection('transferPlans');
+  const id = req.params.id;
+  const ref = id ? plans.doc(String(id)) : plans.doc();
+  const plan = { ...input, userId: uid, updatedAt: Date.now() };
+  await db.runTransaction(async (transaction) => {
+    if ((await transaction.get(profile)).data()?.deleting)
+      throw new HttpError(409, 'Account unavailable');
+    if (id && (await transaction.get(ref)).data()?.userId !== uid)
+      throw new HttpError(404, 'Transfer plan not found');
+    if (input.alertId) {
+      const alert = (await transaction.get(db.collection('alerts').doc(input.alertId))).data();
+      if (alert?.userId !== uid || alert?.pair !== input.pair)
+        throw new HttpError(400, 'Choose one of your alerts for the same currency pair');
+    }
+    transaction.set(ref, plan);
+  });
+  res.status(id ? 200 : 201).json({ ...plan, id: ref.id });
+};
+app.post('/api/transfer-plans', savePlan);
+app.put('/api/transfer-plans/:id', savePlan);
+app.delete('/api/transfer-plans/:id', async (req, res) => {
+  const ref = db.collection('transferPlans').doc(String(req.params.id));
+  await db.runTransaction(async (transaction) => {
+    if ((await transaction.get(ref)).data()?.userId !== res.locals.uid)
+      throw new HttpError(404, 'Transfer plan not found');
+    transaction.delete(ref);
+  });
+  res.json({ ok: true });
+});
 app.post('/api/notifications/clear', async (_req, res) => {
   await db
     .collection('users')
@@ -289,7 +330,7 @@ app.delete('/api/account', async (_req, res) => {
       throw new HttpError(409, 'Email processing. Try deletion in two minutes.');
     t.set(u, { deleting: true }, { merge: true });
   });
-  for (const collection of ['alerts', 'notificationLogs', 'pushDevices'])
+  for (const collection of ['alerts', 'notificationLogs', 'pushDevices', 'transferPlans'])
     for (;;) {
       const s = await db.collection(collection).where('userId', '==', uid).limit(400).get();
       if (s.empty) break;
