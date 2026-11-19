@@ -8,8 +8,12 @@ const mocks = vi.hoisted(() => ({
   deleteUser: vi.fn(),
   latest: vi.fn(),
   history: vi.fn(),
+  sendPush: vi.fn(),
 }));
 vi.mock('../server/firebase.js', () => ({ db: fakeDb, auth: mocks, adminReady: true }));
+vi.mock('firebase-admin/messaging', () => ({
+  getMessaging: () => ({ sendEachForMulticast: mocks.sendPush }),
+}));
 vi.mock('../server/rates.js', () => ({
   getRates: mocks.latest,
   getAlertRates: mocks.latest,
@@ -568,6 +572,42 @@ it('requires an enabled device to save a push alert and holds it active after op
   await setDevice(false).expect(200);
   await enqueue(id, { ...rate(), rate: 54 });
   expect(records.get('alerts/' + id).status).toBe('active');
+});
+
+it('queues Preview push without sending and completes through mocked FCM outside Preview', async () => {
+  const tokens = ['valid-registration-token-example', 'expired-registration-token-example'];
+  for (const token of tokens) {
+    await request(app)
+      .put('/api/push-device')
+      .set('Authorization', 'Bearer alice')
+      .send({ token, enabled: true })
+      .expect(200);
+  }
+  const id = await saveAlert('alice', { ...input, channel: 'push' }, rate());
+  const jobId = 'alert-' + id + '-1';
+  vi.stubEnv('VERCEL_ENV', 'preview');
+  mocks.latest.mockResolvedValue([{ ...rate(), rate: 54 }]);
+  await expect(monitor()).resolves.toEqual({ processed: 0 });
+  await deliver(jobId);
+  expect(mocks.sendPush).not.toHaveBeenCalled();
+  expect(records.get('notificationLogs/' + jobId).status).toBe('pending');
+
+  vi.unstubAllEnvs();
+  mocks.sendPush.mockResolvedValue({
+    successCount: 1,
+    responses: [
+      { success: true, messageId: 'fake-fcm-message' },
+      { success: false, error: { code: 'messaging/registration-token-not-registered' } },
+    ],
+  });
+  await deliver(jobId);
+  expect(mocks.sendPush).toHaveBeenCalledExactlyOnceWith({
+    tokens,
+    data: { path: '/dashboard#alert-' + id, tag: jobId },
+    webpush: { headers: { TTL: '3600' } },
+  });
+  expect(records.get('alerts/' + id).status).toBe('completed');
+  expect([...records.values()].some((record) => record.token === tokens[1])).toBe(false);
 });
 
 it('evaluates intraday alerts even when the daily provider fails', async () => {

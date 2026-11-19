@@ -20,7 +20,7 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
     const { app } = await import('../server/app');
     const { db } = await import('../server/firebase');
     database = db;
-    const { enqueue, deliver, monitor } = await import('../server/monitor');
+    const { deliver } = await import('../server/monitor');
     const authBase = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/';
     async function account(method: string, body: object) {
       const response = await fetch(authBase + method + '?key=fake-key', {
@@ -72,18 +72,40 @@ describe.skipIf(!enabled)('Firebase emulator end-to-end', () => {
       .send({ pair: 'NZD/INR', condition: 'gte', targetRate: 53, immediate: false });
     expect(created.status).toBe(201);
     const id = created.body.id;
-    expect(await monitor()).toEqual({ processed: 0 });
+    const cronSecret = 'emulator-only-monitor-secret'.repeat(2);
+    vi.stubEnv('CRON_SECRET', cronSecret);
+    const monitorPath = '/api/jobs/monitor';
+    const tick = () =>
+      request(app)
+        .post(monitorPath)
+        .set('Authorization', 'Bearer ' + cronSecret);
+    await request(app).post(monitorPath).expect(401);
+    await tick().expect(200, { processed: 0 });
     expect((await database.collection('system').doc('monitor').get()).data()).toMatchObject({
       lastRatesOk: true,
       until: 0,
     });
     expect((await database.collection('alerts').doc(id).get()).data()?.status).toBe('active');
-    await Promise.all([enqueue(id, { ...rate, rate: 53.2 }), enqueue(id, { ...rate, rate: 53.2 })]);
     const sender = vi.fn().mockResolvedValue('test-email-id');
-    await Promise.all([
-      deliver('alert-' + id + '-1', sender),
-      deliver('alert-' + id + '-1', sender),
-    ]);
+    const jobId = 'alert-' + id + '-1';
+    const job = db.collection('notificationLogs').doc(jobId);
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    try {
+      rates.latest.mockResolvedValue([{ ...rate, rate: 53.2 }]);
+      await tick().expect(200, { processed: 0 });
+      await tick().expect(200, { processed: 0 });
+      await deliver(jobId, sender);
+      expect(sender).not.toHaveBeenCalled();
+      expect((await db.collection('alerts').doc(id).get()).data()?.status).toBe('processing');
+      expect((await job.get()).data()).toMatchObject({ status: 'pending', attempts: 0 });
+      await request(app)
+        .get(monitorPath)
+        .set('Authorization', 'Bearer ' + cronSecret)
+        .expect(200);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    await Promise.all([deliver(jobId, sender), deliver(jobId, sender)]);
     expect(sender).toHaveBeenCalledTimes(1);
     expect((await db.collection('alerts').doc(id).get()).data()?.status).toBe('completed');
     const another = await account('accounts:signUp', {

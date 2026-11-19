@@ -12,16 +12,13 @@ For a dedicated, approved Vercel Preview project using Automation Bypass, store 
 
 ## Deployment Protection decision
 
-Do not enable project-wide Protection Bypass for Automation on the existing project: the project also hosts Production and a project-scoped secret would remain available to every deployment in that project. The existing deployment-specific Shareable Link and its cookie exchange may support manual browser/read-only checks, but they are not an adequate machine-to-machine contract for a scheduled POST unless Vercel has explicitly established that the cookie and redirect path remains valid for that exact deployment.
+Keep project-wide Protection Bypass for Automation disabled on the production-linked project. Its scope covers all deployments in that project. [Vercel protection methods](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection)
 
-The smallest isolated configuration is:
+The existing Preview Shareable Link returned a same-origin 307 and cookies. A read-only request with those cookies reached RateWatch and passed monitor authentication with the correct bearer. The scheduler supports this exchange only in Preview, on the exact origin configured for the monitor. It accepts the Vercel authentication cookies, classifies bootstrap errors separately, and refuses to follow or replay a redirected POST. The live scheduled POST remains unverified.
 
-1. Keep the existing Preview deployment protected and paused.
-2. Create a separate Vercel Preview project only after separate approval.
-3. Connect the same repository/branch to the dedicated Preview project, configure `ratewatch-preview` Firebase variables and a Preview-only `CRON_SECRET`, and preserve project Production Protection.
-4. Generate that project's Protection Bypass secret and store it only as `VERCEL_AUTOMATION_BYPASS_SECRET` on the Worker.
-5. Use wrong-secret GET and read-only authenticated GET checks before any POST.
-6. Enable the Worker Cron trigger only after one isolated POST returns a valid success or documented busy response.
+1. Keep the current Preview Worker paused. After deployment approval, update the existing Vercel Preview with the delivery guard and update the existing Worker using the paused config. Point the Worker URL and Preview-only share credential at the same confirmed Preview deployment.
+2. Confirm wrong-secret and authorized GET responses. Then run one approved synthetic POST and verify the monitor health and a single pending outbox record. Vercel Preview queues matches with delivery disabled, including the immediate-alert path.
+3. If the scoped share exchange fails on POST, keep Cron paused and verify a supported Preview-scoped automation mechanism before considering infrastructure changes.
 
 No project, deployment, bypass secret, environment variable, Cloudflare resource, or Cron trigger was changed during this investigation.
 
@@ -47,7 +44,7 @@ After explicit approval to create the preview Worker and provision secrets, depl
 npx wrangler@4.165.0 deploy --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret put MONITOR_URL --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret put CRON_SECRET --config scheduler/wrangler.preview-paused.toml
-npx wrangler@4.165.0 secret put VERCEL_AUTOMATION_BYPASS_SECRET --config scheduler/wrangler.preview-paused.toml
+npx wrangler@4.165.0 secret put VERCEL_PREVIEW_SHARE_URL --config scheduler/wrangler.preview-paused.toml
 npx wrangler@4.165.0 secret list --config scheduler/wrangler.preview-paused.toml
 ~~~
 

@@ -67,6 +67,7 @@ export async function enqueue(id: string, rate: Rate) {
   });
 }
 export async function deliver(id: string, sender = sendEmail, now = Date.now()) {
+  if (process.env.VERCEL_ENV === 'preview') return;
   const ref = db.collection('notificationLogs').doc(id),
     token = randomUUID();
   const job = await db.runTransaction(async (t) => {
@@ -204,10 +205,7 @@ export async function monitor() {
     try {
       let cursor = '';
       for (;;) {
-        const query = db
-          .collection('alerts')
-          .where('status', '==', 'active')
-          .orderBy('__name__');
+        const query = db.collection('alerts').where('status', '==', 'active').orderBy('__name__');
         const page = await (cursor ? query.startAfter(cursor) : query).limit(200).get();
         for (const source of ['daily', 'intraday']) {
           const selected = page.docs.filter((doc) => (doc.data().rateSource || 'daily') === source);
@@ -245,19 +243,23 @@ export async function monitor() {
       rateError = true;
       log('digest_queue_error');
     }
-    const jobs = await db
-      .collection('notificationLogs')
-      .where('status', 'in', ['pending', 'sending'])
-      .where('nextAttemptAt', '<=', Date.now())
-      .orderBy('nextAttemptAt')
-      .limit(100)
-      .get();
-    for (const j of jobs.docs) {
-      await deliver(j.id);
-      await pause(600);
+    let processed = 0;
+    if (process.env.VERCEL_ENV !== 'preview') {
+      const jobs = await db
+        .collection('notificationLogs')
+        .where('status', 'in', ['pending', 'sending'])
+        .where('nextAttemptAt', '<=', Date.now())
+        .orderBy('nextAttemptAt')
+        .limit(100)
+        .get();
+      for (const j of jobs.docs) {
+        await deliver(j.id);
+        await pause(600);
+      }
+      processed = jobs.size;
     }
     completedAt = Date.now();
-    return rateError ? { processed: jobs.size, rateError: true } : { processed: jobs.size };
+    return rateError ? { processed, rateError: true } : { processed };
   } finally {
     await db.runTransaction(async (t) => {
       const s = await t.get(lock);

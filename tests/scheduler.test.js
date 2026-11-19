@@ -1,4 +1,4 @@
-/* global Response, DOMException */
+/* global Response, DOMException, Headers */
 import { expect, it, vi } from 'vitest';
 import { invokeMonitor } from '../scheduler/worker.js';
 
@@ -20,7 +20,7 @@ it.each([
     env.MONITOR_URL,
     expect.objectContaining({
       method: 'POST',
-    redirect: 'manual',
+      redirect: 'manual',
       headers: expect.objectContaining({ Authorization: 'Bearer ' + env.CRON_SECRET }),
     }),
   );
@@ -98,4 +98,70 @@ it('records a 302 as an HTTP redirect instead of network_error', async () => {
     outcome: 'http_error',
     status: 302,
   });
+});
+
+const shareEnv = {
+  ...env,
+  PREVIEW_ONLY: 'true',
+  VERCEL_PREVIEW_SHARE_URL: 'https://preview.example.test/?_vercel_share=local-fixture',
+};
+
+it('exchanges the Preview Shareable Link and sends one authenticated POST without following redirects', async () => {
+  const headers = new Headers({ Location: '/' });
+  headers.append('Set-Cookie', '_vercel_jwt=test-cookie; Secure; HttpOnly; Path=/');
+  headers.append('Set-Cookie', '_vercel_sso_nonce=test-nonce; Secure; Path=/');
+  headers.append('Set-Cookie', 'unrelated=ignored; Path=/');
+  const send = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 307, headers }))
+    .mockResolvedValueOnce(new Response(null, { status: 302 }));
+  const log = vi.fn();
+  await expect(invokeMonitor(event, shareEnv, send, log)).rejects.toThrow('http_error');
+  expect(send).toHaveBeenNthCalledWith(
+    1,
+    shareEnv.VERCEL_PREVIEW_SHARE_URL,
+    expect.objectContaining({ redirect: 'manual' }),
+  );
+  expect(send.mock.calls[0][1]).not.toHaveProperty('headers');
+  expect(send).toHaveBeenNthCalledWith(
+    2,
+    env.MONITOR_URL,
+    expect.objectContaining({
+      method: 'POST',
+      redirect: 'manual',
+      headers: expect.objectContaining({
+        Cookie: '_vercel_jwt=test-cookie; _vercel_sso_nonce=test-nonce',
+        Authorization: 'Bearer ' + env.CRON_SECRET,
+      }),
+    }),
+  );
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(JSON.stringify(log.mock.calls)).not.toMatch(/test-cookie|local-fixture|test-secret/);
+});
+
+it('rejects off-origin share links and stops at a redirected bootstrap', async () => {
+  const send = vi.fn().mockResolvedValue(
+    new Response(null, {
+      status: 307,
+      headers: {
+        Location: 'https://other.example.test/',
+        'Set-Cookie': '_vercel_jwt=test-cookie; Secure; Path=/',
+      },
+    }),
+  );
+  const log = vi.fn();
+  await expect(
+    invokeMonitor(
+      event,
+      {
+        ...shareEnv,
+        VERCEL_PREVIEW_SHARE_URL: 'https://other.example.test/?_vercel_share=fixture',
+      },
+      send,
+      log,
+    ),
+  ).rejects.toThrow('configuration_error');
+  expect(send).not.toHaveBeenCalled();
+  await expect(invokeMonitor(event, shareEnv, send, log)).rejects.toThrow('preview_access_error');
+  expect(send).toHaveBeenCalledOnce();
 });

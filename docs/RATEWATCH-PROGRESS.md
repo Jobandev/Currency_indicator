@@ -50,3 +50,27 @@ Fixed early registration navigation while profile setup and verification were pe
 Local checks support an isolated Preview smoke test after configuration review. The deployed environment, Google sign-in, device-specific PWA installation, and live delivery remain unverified. Confirm the Vercel Preview Firebase project and protection settings, scoped configuration, the Worker version, and its actual remote trigger state. Keep Cron paused. Use a separately approved test for any synthetic monitor POST or live email or push check.
 
 No push, deployment, project creation, hosting change, Cron activation, billing change, or real notification occurred.
+
+## Milestone C
+
+### Read-only remote checks
+
+- GitHub `preview` still resolves to `8d1cbc5`. Milestone B remains in the local branch history at `3f74397`.
+- Vercel confirmed the latest inspected deployment is Ready and targets Preview. The `preview` branch's frontend and backend Firebase project variables select `ratewatch-preview`. The scoped variable list contains the Preview scheduler and Firebase Admin credentials, with email, digest, push VAPID, and intraday provider credentials absent.
+- A direct monitoring GET returned 302 to Vercel sign-in. The existing Shareable Link returned a same-origin 307 and set cookies. Using those cookies, a wrong bearer returned the RateWatch JSON 401, the correct bearer returned 503 with no completed tick, and health returned 200 with Admin configured.
+- Firebase metadata confirmed the Preview web app and default Firestore database. The existing Preview service account could read that database. The monitor document was absent, and the read-only counts returned zero deliverable jobs and zero push registrations.
+- Cloudflare reported Preview Worker version `0104fc90-2fcd-4f90-a907-76c5f81078c6` at 100% and zero remote Cron triggers. The Worker has the monitor URL, Preview bearer, and Shareable Link secret bindings. No Automation Bypass binding was listed.
+
+### Local changes and verification
+
+- Scoped the Worker share-cookie exchange to the configured Preview origin. The Worker refuses cross-origin credentials and redirects, makes one monitor POST, and distinguishes share exchange errors, HTTP failures, and network timeouts.
+- Preview monitor ticks evaluate rates and create outbox entries with delivery disabled. The delivery guard covers email and FCM, including immediate-alert requests. The emulator test calls the authenticated POST twice against a synthetic target and confirms one pending job with zero delivery attempts. A separate mocked delivery check confirms one completion across concurrent attempts.
+- Unit coverage verifies monitor lease ownership and overlap, pause/resume, alert-generation deduplication, the shared 30-minute intraday cap, Brevo HTTPS and idempotency, and mocked FCM success and expired-token cleanup.
+- Final checks passed. Vitest reported 78 passing tests, and the Firebase Auth and Firestore emulator integration test passed separately. TypeScript, ESLint, the production build, and Git whitespace checks passed.
+- The live POST and live email/push were deferred. The deployed backend has yet to receive the local delivery guard.
+
+### Remaining launch gates
+
+After deployment approval, update the existing Vercel Preview and existing paused Worker with this revision. Align the Worker target and Shareable Link to the exact confirmed Preview origin. Repeat read-only authentication checks, then perform one controlled synthetic Preview POST and verify one pending outbox job, zero delivery attempts, and updated monitor health. Keep the production-linked project's Automation Bypass disabled. If the Shareable Link fails for an actual Worker POST, keep Cron paused and resolve Preview-scoped machine authentication before activation. Live Brevo and FCM tests require separate approval.
+
+No remote settings, deployments, Cron triggers, billing, production data, or notification delivery were changed.
