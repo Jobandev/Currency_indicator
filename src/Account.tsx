@@ -441,6 +441,14 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
               RateWatch does not execute transfers or collect payment details. If you follow a link
               to a transfer provider, its terms and privacy policy apply on its site.
             </p>
+            <h2>Where information is processed</h2>
+            <p>
+              The production Cloud Firestore database is configured in Melbourne, Australia. The
+              production API is configured to run in Washington, D.C., United States. Firebase
+              Authentication processes sign-in data in the United States. Other provider services,
+              including push delivery and operational logging, can process information in different
+              locations.
+            </p>
             <h2>Browser storage</h2>
             <p>
               RateWatch uses browser storage to keep you signed in, remember your favourite pairs,
@@ -458,6 +466,11 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
               You can change email settings, turn off summaries in Settings or through each
               summary’s unsubscribe link, and disable push on each registered device. You can delete
               alerts and saved plans individually.
+            </p>
+            <p>
+              RateWatch records notification processing outcomes and delivery attempts. Clearing
+              notifications in the dashboard hides them from your view. RateWatch keeps delivery
+              records separately to help prevent duplicate sends and investigate failures.
             </p>
             <p>
               Account deletion in Settings requires a recent sign-in. It removes your RateWatch
@@ -481,6 +494,11 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
               source update schedules, delivery failures, spam filtering and device permissions can
               delay or prevent notifications. An email provider’s acceptance does not establish
               inbox delivery.
+            </p>
+            <p>
+              To receive push alerts, enable them on each device you want to use. You can disable
+              push on that device from Settings. Optional email summaries have an unsubscribe link,
+              and you can also turn them off in Settings.
             </p>
             <h2>External transfer providers</h2>
             <p>

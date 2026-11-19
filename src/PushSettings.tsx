@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { auth } from './firebase';
 import { api } from './api';
 
@@ -13,6 +13,8 @@ export default function PushSettings({ uid }: { uid: string }) {
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const registrationRevision = useRef(0);
+  const refreshWrite = useRef<Promise<unknown> | null>(null);
   const supported = Boolean(
     auth &&
     import.meta.env.VITE_FIREBASE_VAPID_KEY &&
@@ -25,6 +27,8 @@ export default function PushSettings({ uid }: { uid: string }) {
   useEffect(() => {
     if (!supported || !enabled || Notification.permission !== 'granted' || !auth) return;
     const app = auth.app;
+    const revision = registrationRevision.current;
+    let cancelled = false;
     void import('firebase/messaging')
       .then(async ({ getMessaging, getToken, isSupported }) => {
         if (!(await isSupported())) return;
@@ -34,17 +38,36 @@ export default function PushSettings({ uid }: { uid: string }) {
           serviceWorkerRegistration: registration,
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
         });
-        if (auth?.currentUser?.uid === uid)
-          await api('/push-device', {
-            method: 'PUT',
-            body: JSON.stringify({ token, enabled: true }),
-          });
+        if (
+          cancelled ||
+          revision !== registrationRevision.current ||
+          auth?.currentUser?.uid !== uid
+        )
+          return;
+        const write = api('/push-device', {
+          method: 'PUT',
+          body: JSON.stringify({ token, enabled: true }),
+        });
+        refreshWrite.current = write;
+        try {
+          await write;
+        } finally {
+          if (refreshWrite.current === write) refreshWrite.current = null;
+        }
       })
-      .catch(() => setMessage('Could not refresh push registration.'));
+      .catch(() => {
+        if (!cancelled && revision === registrationRevision.current)
+          setMessage('Could not refresh push registration.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [enabled, supported, uid]);
 
   async function change() {
     if (!auth || busy) return;
+    // Invalidate pending token refreshes before an opt-out can remove the device.
+    if (enabled) registrationRevision.current++;
     setBusy(true);
     setMessage('');
     try {
@@ -62,6 +85,7 @@ export default function PushSettings({ uid }: { uid: string }) {
         serviceWorkerRegistration: worker,
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
       });
+      if (enabled) await refreshWrite.current?.catch(() => {});
       if (auth.currentUser?.uid !== uid) return;
       await api('/push-device', {
         method: 'PUT',
