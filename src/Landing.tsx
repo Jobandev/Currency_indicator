@@ -1,44 +1,36 @@
 import { Link } from 'react-router-dom';
-import {
-  ArrowUpRight,
-  ArrowRight,
-  Bell,
-  Clock3,
-  Globe2,
-  Mail,
-  Plus,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowUpRight, Bell, Clock3, Globe2, Mail, Plus, ShieldCheck } from 'lucide-react';
 import { PublicHeader, Footer, Currency, useRates, format } from './ui';
 import Converter from './Converter';
 import HistoryPreview from './HistoryPreview';
 import InstallAction from './InstallAction';
+import RateAtmosphere from './RateAtmosphere';
+import './redesign.css';
 export default function Landing() {
   const { rates, error, loading, load } = useRates();
   return (
     <>
       <PublicHeader />
       <main id="main-content" tabIndex={-1}>
-        <section className="hero rate-hero">
-          <div className="hero-copy">
-            <h1>
-              Check the rate.
-              <br />
-              <em>Set your target.</em>
-            </h1>
-            <p>
-              Convert currencies, explore past rates, and get an alert when your target is reached.
-            </p>
-            <div className="hero-actions">
-              <Link className="button light" to="/charts">
-                Explore rate history <ArrowUpRight size={19} />
+        <section className="rw-hero" aria-labelledby="rw-home-title">
+          <RateAtmosphere />
+          <div className="rw-hero-inner">
+            <div className="rw-hero-copy">
+              <h1 id="rw-home-title">
+                The right rate.
+                <br />
+                <span>At the right moment.</span>
+              </h1>
+              <p>
+                Track exchange rates, explore historical trends, and get notified when your target
+                is reached.
+              </p>
+              <Link className="rw-history-link" to="/charts">
+                Explore rate history
               </Link>
-              <a className="text-link" href="#how-it-works">
-                See how it works <ArrowRight size={17} />
-              </a>
             </div>
+            <Converter appearance="homepage" />
           </div>
-          <Converter />
         </section>
         <section className="rate-strip">
           <div>

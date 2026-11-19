@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { auth } from './firebase';
 import { api } from './api';
+import PublicNavigation from './PublicNavigation';
 import type { Rate } from '../shared/domain';
 export const Session = createContext<{ user: User | null; loading: boolean }>({
   user: null,
@@ -69,25 +70,7 @@ export function useRates() {
 }
 export function PublicHeader() {
   const { user } = useContext(Session);
-  return (
-    <header className="public-header">
-      <Brand />
-      <nav>
-        <a href="/#how-it-works">How it works</a>
-        <Link to="/charts">Charts</Link>
-        <Link to="/planner">Transfer planner</Link>
-        <a href="/#faq">FAQs</a>
-      </nav>
-      <div>
-        <Link className="text-link" to={user ? '/dashboard' : '/login'}>
-          {user ? 'Dashboard' : 'Log in'}
-        </Link>
-        <Link className="button small" to={user ? '/alerts/new' : '/register'}>
-          Get started free <ArrowUpRight size={16} />
-        </Link>
-      </div>
-    </header>
-  );
+  return <PublicNavigation signedIn={Boolean(user)} />;
 }
 export function Footer() {
   return (
