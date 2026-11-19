@@ -29,21 +29,26 @@ export const publicPages = {
     'Estimate how much your recipient could receive and compare quotes with external providers.',
     'Transfer planner',
   ],
-  '/legal/privacy': [
-    'Privacy policy',
-    'Learn how RateWatch handles account information, alerts and notification preferences.',
-    'Privacy policy',
+  '/privacy': [
+    'Privacy Policy',
+    'Learn what RateWatch collects, how it uses account and device information, and how to manage or delete your data.',
+    'Privacy Policy',
   ],
-  '/legal/terms': [
-    'Terms of service',
-    'Read the terms for using the RateWatch currency information and alert service.',
-    'Terms of service',
+  '/terms': [
+    'Terms of Service',
+    'Read the terms for using RateWatch reference rates, transfer estimates, saved plans and rate alerts.',
+    'Terms of Service',
   ],
   '/legal/disclaimer': [
     'Financial information disclaimer',
     'Learn what indicative exchange rates mean and why a provider quote can differ.',
     'Financial information disclaimer',
   ],
+} as const;
+
+export const policyRedirects = {
+  '/legal/privacy': '/privacy',
+  '/legal/terms': '/terms',
 } as const;
 
 export const currencyPageMetadata = ([base, quote]: readonly [string, string]) =>

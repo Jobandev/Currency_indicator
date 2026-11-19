@@ -1,11 +1,13 @@
 import 'dotenv/config';
-import { publicPage } from '../shared/public-pages.js';
+import { policyRedirects, publicPage } from '../shared/public-pages.js';
 const { app } = await import('./app.js');
 const express = (await import('express')).default;
 const path = await import('node:path');
 app.use(express.static(path.resolve('dist')));
 app.get('/{*path}', (req, res) => {
   const route = req.path.replace(/\/$/, '') || '/';
+  if (Object.hasOwn(policyRedirects, route))
+    return res.redirect(308, policyRedirects[route as keyof typeof policyRedirects]);
   if (publicPage(route))
     return res.sendFile(
       path.resolve('dist', route === '/' ? 'index.html' : route.slice(1) + '.html'),

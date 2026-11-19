@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -177,7 +177,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
                 Forgot password?
               </Link>
             )}
-            <button disabled={busy} className="button full">
+            <button
+              disabled={busy}
+              className="button full"
+              aria-describedby={mode === 'register' ? 'registration-policies' : undefined}
+            >
               {busy
                 ? 'Please wait…'
                 : mode === 'register'
@@ -193,7 +197,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
               <div className="divider">
                 <span>or continue with</span>
               </div>
-              <button disabled={busy} onClick={google} className="button outline full">
+              <button
+                disabled={busy}
+                onClick={google}
+                className="button outline full"
+                aria-describedby={mode === 'register' ? 'registration-policies' : undefined}
+              >
                 <Globe2 size={18} />
                 Google
               </button>
@@ -210,10 +219,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
               {mode === 'register' ? 'Log in' : 'Join for free'}
             </Link>
           </p>
-          <small className="muted">
-            By continuing, you accept our <Link to="/legal/terms">draft terms</Link> and{' '}
-            <Link to="/legal/privacy">privacy policy</Link>.
-          </small>
+          {mode === 'register' && (
+            <small id="registration-policies" className="muted">
+              By creating an account, you agree to the <Link to="/terms">Terms of Service</Link>.
+              Read the <Link to="/privacy">Privacy Policy</Link> to learn how RateWatch uses your
+              information.
+            </small>
+          )}
         </section>
       </main>
       <Footer />
@@ -387,36 +399,22 @@ export function Profile() {
     </Shell>
   );
 }
-export function Legal() {
-  const { kind } = useParams(),
-    titles: Record<string, string> = {
-      privacy: 'Privacy policy',
-      terms: 'Terms of service',
-      disclaimer: 'Financial information disclaimer',
-    };
+export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
+  const titles = {
+    privacy: 'Privacy Policy',
+    terms: 'Terms of Service',
+    disclaimer: 'Financial information disclaimer',
+  };
   return (
     <>
       <PublicHeader />
       <main id="main-content" tabIndex={-1} className="legal section">
-        <span className="eyebrow">TRANSPARENCY MATTERS</span>
-        <h1>{titles[kind || ''] || 'Legal information'}</h1>
+        <h1>{titles[kind]}</h1>
         {kind !== 'disclaimer' && (
-          <div className="info">
-            <strong>DRAFT — for review before public launch.</strong>
-            {kind === 'privacy' ? (
-              <p>
-                Before publishing, confirm the operator’s legal name and privacy contact, effective
-                date, retention and backup practices, processing locations, and any applicable
-                privacy rights and request procedures.
-              </p>
-            ) : (
-              <p>
-                Before publishing, confirm the operator’s legal name and support contact, effective
-                date, eligibility, governing law, dispute procedures, and applicable consumer terms
-                for the markets served.
-              </p>
-            )}
-          </div>
+          <p>
+            Jobanpreet Singh operates <a href="https://currencyindicators.vercel.app/">RateWatch</a>{' '}
+            as an individual based in New Zealand.
+          </p>
         )}
         {kind === 'privacy' ? (
           <>
@@ -433,10 +431,11 @@ export function Legal() {
               We use this information to operate your account, save your plans, monitor your
               targets, send notifications you request, and investigate delivery and service
               failures. Vercel hosts the site and API, and a Cloudflare Worker calls the monitoring
-              endpoint. Firebase Authentication handles sign-in, Cloud Firestore stores application
-              records, and Firebase Cloud Messaging delivers push. Brevo is the planned provider for
-              alert and summary email. Frankfurter supplies daily reference rates, and
-              exchangerate.dev supplies delayed observations where enabled.
+              endpoint. Firebase Authentication handles sign-in, including optional Google sign-in.
+              Cloud Firestore stores application records, and Firebase Cloud Messaging delivers push
+              where enabled. RateWatch uses the configured email provider for alerts and summaries.
+              The application supports Brevo, Gmail and Resend. Frankfurter supplies daily reference
+              rates, and exchangerate.dev supplies delayed observations where enabled.
             </p>
             <p>
               RateWatch does not execute transfers or collect payment details. If you follow a link
@@ -445,8 +444,14 @@ export function Legal() {
             <h2>Browser storage</h2>
             <p>
               RateWatch uses browser storage to keep you signed in, remember your favourite pairs,
-              and record push preferences on this device. The service worker stores an offline
-              fallback page.
+              and first-alert guide preferences, and record push preferences on this device. The
+              service worker stores an offline fallback page. Google sign-in may use browser storage
+              as part of the sign-in flow.
+            </p>
+            <p>
+              RateWatch currently serves no ads and sets no advertising cookies. If advertising is
+              introduced, RateWatch will update this policy and keep optional advertising storage
+              disabled until an appropriate consent mechanism is in place.
             </p>
             <h2>Notification controls and deletion</h2>
             <p>
@@ -492,8 +497,8 @@ export function Legal() {
             <h2>Closing your account</h2>
             <p>
               You can stop using RateWatch, delete saved plans and alerts individually, or delete
-              your account from Settings. The Privacy policy describes what account deletion
-              removes.
+              your account from Settings. The <Link to="/privacy">Privacy Policy</Link> describes
+              what account deletion removes.
             </p>
           </>
         ) : (
@@ -516,6 +521,17 @@ export function Legal() {
               or savings are guaranteed.
             </p>
           </>
+        )}
+        {kind !== 'disclaimer' && (
+          <section aria-labelledby="policy-contact">
+            <h2 id="policy-contact">Contact</h2>
+            <p>
+              {kind === 'privacy'
+                ? 'For privacy questions or requests about your information, contact '
+                : 'For questions about these terms or using RateWatch, contact '}
+              Jobanpreet Singh at <a href="mailto:joban978jk@gmail.com">joban978jk@gmail.com</a>.
+            </p>
+          </section>
         )}
         <Link className="button outline" to="/">
           Back to RateWatch <ArrowRight size={17} />

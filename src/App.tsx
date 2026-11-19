@@ -4,7 +4,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Bell, X } from 'lucide-react';
 import { auth } from './firebase';
 import { Session, Toast } from './ui';
-import { publicPage } from '../shared/public-pages';
+import { policyRedirects, publicPage } from '../shared/public-pages';
 import Landing from './Landing';
 const Unsubscribe = lazy(() => import('./Unsubscribe'));
 const CurrencyPair = lazy(() => import('./CurrencyPair'));
@@ -109,7 +109,12 @@ export default function App() {
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/register" element={<AuthPage mode="register" />} />
             <Route path="/forgot-password" element={<AuthPage mode="reset" />} />
-            <Route path="/legal/:kind" element={<Legal />} />
+            <Route path="/privacy" element={<Legal kind="privacy" />} />
+            <Route path="/terms" element={<Legal kind="terms" />} />
+            <Route path="/legal/disclaimer" element={<Legal kind="disclaimer" />} />
+            {Object.entries(policyRedirects).map(([path, destination]) => (
+              <Route key={path} path={path} element={<Navigate to={destination} replace />} />
+            ))}
             <Route
               path="/dashboard"
               element={

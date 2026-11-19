@@ -601,6 +601,7 @@ footer > span {
 }
 footer > div {
   display: flex;
+  flex-wrap: wrap;
   gap: 22px;
   margin-left: auto;
   font-size: 11px;
@@ -610,6 +611,11 @@ footer > small {
   width: 100%;
   font-size: 10px;
   color: #697362;
+}
+footer > div a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 .auth-page {
   max-width: 1152px;
@@ -699,6 +705,10 @@ form .button {
   text-align: center;
   font-size: 10px;
   line-height: 1.8;
+}
+#registration-policies a {
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
 }
 .info,
 .error {
@@ -1449,6 +1459,8 @@ td small {
 }
 .app-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   justify-content: space-between;
   margin-top: auto;
   padding: 18px 36px;
@@ -1456,7 +1468,15 @@ td small {
   color: #647454;
   border-top: 1px solid #edf0e8;
 }
+.app-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
 .app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   text-decoration: underline;
 }
 .verification {
@@ -1646,14 +1666,20 @@ legend {
   padding: 65px 20px;
 }
 .legal h1 {
-  font-size: 40px;
+  font-size: clamp(2rem, 7vw, 2.85rem);
   margin-top: 15px;
 }
 .legal h2 {
   margin-top: 35px;
 }
 .legal p {
-  font-size: 13px;
+  font-size: 1rem;
+}
+.legal p a {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  overflow-wrap: anywhere;
 }
 .toast {
   position: fixed;

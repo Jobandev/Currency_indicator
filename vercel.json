@@ -10,6 +10,8 @@
     }
   },
   "routes": [
+    { "src": "/legal/privacy/?", "status": 308, "headers": { "Location": "/privacy" } },
+    { "src": "/legal/terms/?", "status": 308, "headers": { "Location": "/terms" } },
     {
       "src": "/api(?:/.*)?",
       "dest": "/api/index"
@@ -28,7 +30,7 @@
       "handle": "filesystem"
     },
     {
-      "src": "/(charts|planner|rates/(?:nzd-inr|aud-inr|usd-inr|gbp-inr|eur-inr|nzd-usd)|legal/(?:privacy|terms|disclaimer))/?",
+      "src": "/(charts|planner|privacy|terms|rates/(?:nzd-inr|aud-inr|usd-inr|gbp-inr|eur-inr|nzd-usd)|legal/disclaimer)/?",
       "dest": "/$1.html"
     },
     { "src": "/", "dest": "/index.html" },

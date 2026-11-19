@@ -96,8 +96,8 @@ export function Footer() {
       <span>Good timing. Better possibilities.</span>
       <div>
         <Link to="/rates/nzd-inr">Currency pairs</Link>
-        <Link to="/legal/privacy">Privacy</Link>
-        <Link to="/legal/terms">Terms</Link>
+        <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/terms">Terms of Service</Link>
         <Link to="/legal/disclaimer">Disclaimer</Link>
       </div>
       <small>© {new Date().getFullYear()} RateWatch. Reference rates only.</small>
@@ -198,7 +198,10 @@ export function Shell({ children }: { children: ReactNode }) {
           {children}
         </main>
         <div className="app-footer">
-          <span>Made for better moments.</span>
+          <nav aria-label="Policies">
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
+          </nav>
           <span>
             Reference rates only · <Link to="/legal/disclaimer">View disclaimer</Link>
           </span>
