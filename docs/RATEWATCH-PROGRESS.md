@@ -37,6 +37,14 @@ The pre-recovery local changes were preserved in stash `pre-recovery local previ
 - Confirmed mechanism: Vercel Deployment Protection returns SSO/302 responses. The Worker now uses manual redirect handling and can send `x-vercel-protection-bypass` from a protected secret.
 - `network_error` from the earlier deployment remains ambiguous without Cloudflare response status/logs and the Vercel bypass result. The smallest fix is in place, but live verification is blocked until Cloudflare and Vercel credentials are available.
 
+## Remote authentication status
+
+- Vercel CLI: NOT AUTHENTICATED; no Vercel token or project variables are available in this session.
+- Cloudflare CLI: NOT AUTHENTICATED; no Cloudflare API or account variables are available in this session.
+- Remote Preview deployment, Automation Bypass settings, Worker secrets, Worker logs, and deployment-specific Shareable Link state are therefore NOT VERIFIED.
+- Project-wide Automation Bypass is not an approved option because the existing project can host Production.
+- The existing deployment-specific Shareable Link is suitable only for manually reviewed read-only/browser diagnostics unless a separately verified machine-safe bypass is available.
+
 ## Cleanup
 
 No obsolete Cloudflare application frontend/backend files were found on the recovered branch. The retained `scheduler/` directory is the only Cloudflare implementation. No remote branches or production resources were deleted. No uncertain Docker or Firebase configuration was removed.

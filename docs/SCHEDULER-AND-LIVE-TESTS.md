@@ -10,6 +10,21 @@ The Worker has no public route. It POSTs to one exact HTTPS endpoint with bearer
 
 For Deployment-Protected Preview, the Worker must receive `VERCEL_AUTOMATION_BYPASS_SECRET` and send it as `x-vercel-protection-bypass`. The request uses manual redirect handling so an SSO or other 3xx response is recorded as `http_error` with its status instead of being mislabeled `network_error`. The bypass secret is not included in the URL or log payload.
 
+## Deployment Protection decision
+
+Do not enable project-wide Protection Bypass for Automation on the existing project: the project also hosts Production and a project-scoped secret would remain available to every deployment in that project. The existing deployment-specific Shareable Link and its cookie exchange may support manual browser/read-only checks, but they are not an adequate machine-to-machine contract for a scheduled POST unless Vercel has explicitly established that the cookie and redirect path remains valid for that exact deployment.
+
+The smallest isolated configuration is:
+
+1. Keep the existing Preview deployment protected and paused.
+2. Create a separate Vercel Preview project only after separate approval.
+3. Connect the same repository/branch to the dedicated Preview project, configure `ratewatch-preview` Firebase variables and a Preview-only `CRON_SECRET`, and preserve project Production Protection.
+4. Generate that project's Protection Bypass secret and store it only as `VERCEL_AUTOMATION_BYPASS_SECRET` on the Worker.
+5. Use wrong-secret GET and read-only authenticated GET checks before any POST.
+6. Enable the Worker Cron trigger only after one isolated POST returns a valid success or documented busy response.
+
+No project, deployment, bypass secret, environment variable, Cloudflare resource, or Cron trigger was changed during this investigation.
+
 Cloudflare does not change the Vercel hosting terms. Vercel Hobby is for personal, non-commercial use. Confirm eligible hosting before a commercial launch or introducing referral commissions. Watch Vercel function time, Firestore free quotas and Brevo sending volume. [Vercel fair use](https://vercel.com/docs/limits/fair-use-guidelines)
 
 ## Wrangler preview preparation
