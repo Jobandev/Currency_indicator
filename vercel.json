@@ -14,12 +14,28 @@
       "dest": "/api/index"
     },
     {
+      "src": "/(?:dashboard|settings|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
+      "headers": { "X-Robots-Tag": "noindex, nofollow" },
+      "continue": true
+    },
+    {
+      "src": "/sw.js",
+      "headers": { "Cache-Control": "no-cache" },
+      "continue": true
+    },
+    {
       "handle": "filesystem"
     },
     {
-      "src": "/.*",
-      "dest": "/index.html"
-    }
+      "src": "/(charts|planner|rates/(?:nzd-inr|aud-inr|usd-inr|gbp-inr|eur-inr|nzd-usd)|legal/(?:privacy|terms|disclaimer))/?",
+      "dest": "/$1.html"
+    },
+    { "src": "/", "dest": "/index.html" },
+    {
+      "src": "/(?:dashboard|settings|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
+      "dest": "/app-shell.html"
+    },
+    { "src": "/.*", "status": 404, "dest": "/app-shell.html" }
   ],
   "installCommand": "npm ci"
 }

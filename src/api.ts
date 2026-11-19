@@ -1,6 +1,11 @@
 import { auth } from './firebase';
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await auth?.currentUser?.getIdToken();
+  const timeout = AbortSignal.timeout(25000);
+  const signal =
+    options.signal && typeof AbortSignal.any === 'function'
+      ? AbortSignal.any([options.signal, timeout])
+      : timeout;
   let response: Response;
   try {
     response = await fetch((import.meta.env.VITE_API_URL || '') + '/api' + path, {
@@ -10,7 +15,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
         ...(token ? { Authorization: 'Bearer ' + token } : {}),
         ...options.headers,
       },
-      signal: AbortSignal.timeout(25000),
+      signal,
     });
   } catch (error) {
     if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)) {

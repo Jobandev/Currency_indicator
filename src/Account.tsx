@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -12,10 +12,15 @@ import {
   type User,
 } from 'firebase/auth';
 import { ArrowRight, Check, Globe2, Mail, Trash2, Bell } from 'lucide-react';
+import PushSettings from './PushSettings';
+import InstallAction from './InstallAction';
 import { auth } from './firebase';
 import { api } from './api';
 import { Footer, friendly, PublicHeader, Session, Shell, Toast } from './ui';
 export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
+  const [params] = useSearchParams();
+  const next = params.get('next') || '';
+  const destination = /^\/alerts\/(?:new|[\w-]+\/edit)(?:\?|$)/.test(next) ? next : '/dashboard';
   const { user } = useContext(Session),
     toast = useContext(Toast),
     navigate = useNavigate(),
@@ -29,7 +34,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
         ? 'Account created. Check your inbox to verify your email.'
         : 'Welcome back.',
     );
-    navigate('/dashboard');
+    navigate(destination);
   }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -68,7 +73,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
       await api('/profile', { method: 'POST' });
-      navigate('/dashboard');
+      navigate(destination);
       toast('Signed in with Google.');
     } catch (e) {
       setError(friendly(e));
@@ -76,11 +81,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
       setBusy(false);
     }
   }
-  if (user && mode !== 'reset') return <Navigate to="/dashboard" />;
+  if (user && mode !== 'reset') return <Navigate to={destination} />;
   return (
     <>
       <PublicHeader />
-      <main className="auth-page">
+      <main id="main-content" tabIndex={-1} className="auth-page">
         <aside>
           <span className="eyebrow">GOOD TIMING STARTS HERE</span>
           <h1>
@@ -194,7 +199,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
           )}
           <p className="auth-bottom">
             {mode === 'register' ? 'Already have an account?' : 'New to RateWatch?'}{' '}
-            <Link to={mode === 'register' ? '/login' : '/register'}>
+            <Link
+              to={
+                (mode === 'register' ? '/login' : '/register') +
+                (next ? '?next=' + encodeURIComponent(next) : '')
+              }
+            >
               {mode === 'register' ? 'Log in' : 'Join for free'}
             </Link>
           </p>
@@ -214,14 +224,23 @@ export function Profile() {
     navigate = useNavigate(),
     [name, setName] = useState(user?.displayName || ''),
     [email, setEmail] = useState(true),
+    [digestFrequency, setDigestFrequency] = useState<'off' | 'weekly' | 'monthly'>('off'),
+    [digestPair, setDigestPair] = useState('NZD/INR'),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    api<{ name: string; notificationPreferences?: { email: boolean } }>('/profile')
+    api<{
+      name: string;
+      notificationPreferences?: { email: boolean };
+      digestFrequency?: 'off' | 'weekly' | 'monthly';
+      digestPair?: string;
+    }>('/profile')
       .then((p) => {
         setName(p.name || user?.displayName || '');
         setEmail(p.notificationPreferences?.email !== false);
+        setDigestFrequency(p.digestFrequency || 'off');
+        setDigestPair(p.digestPair || 'NZD/INR');
         setLoaded(true);
       })
       .catch((e) => setError(e.message));
@@ -230,7 +249,10 @@ export function Profile() {
     e.preventDefault();
     setBusy(true);
     try {
-      await api('/profile', { method: 'PATCH', body: JSON.stringify({ name, email }) });
+      await api('/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ name, email, digestFrequency, digestPair }),
+      });
       await user?.reload();
       toast('Preferences saved.');
     } catch (e) {
@@ -277,9 +299,32 @@ export function Profile() {
               <input type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} />
               Email rate notifications
             </label>
-            <p className="muted">
-              Turning this off pauses new triggers. Already queued emails may still be sent.
-            </p>
+            <p className="muted">Turning this off pauses new email triggers.</p>
+            <label>
+              Currency summaries
+              <select
+                value={digestFrequency}
+                onChange={(event) =>
+                  setDigestFrequency(event.target.value as typeof digestFrequency)
+                }
+              >
+                <option value="off">Off</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+            {digestFrequency !== 'off' && (
+              <label>
+                Summary currency pair
+                <input
+                  maxLength={7}
+                  required
+                  pattern="[A-Z]{3}/[A-Z]{3}"
+                  value={digestPair}
+                  onChange={(event) => setDigestPair(event.target.value.toUpperCase())}
+                />
+              </label>
+            )}
             <button className="button" disabled={busy || !loaded}>
               Save changes <Check size={16} />
             </button>
@@ -335,6 +380,8 @@ export function Profile() {
           </button>
         </section>
       </div>
+      {user && <PushSettings key={user.uid} uid={user.uid} />}
+      <InstallAction />
     </Shell>
   );
 }
@@ -348,7 +395,7 @@ export function Legal() {
   return (
     <>
       <PublicHeader />
-      <main className="legal section">
+      <main id="main-content" tabIndex={-1} className="legal section">
         <span className="eyebrow">TRANSPARENCY MATTERS</span>
         <h1>{titles[kind || ''] || 'Legal information'}</h1>
         {kind !== 'disclaimer' && (
@@ -365,15 +412,24 @@ export function Legal() {
             <h2>Information we use</h2>
             <p>
               RateWatch stores your account identifier, name, email address, verification state,
-              alert preferences, currency targets, and notification records. Firebase handles
-              authentication; Cloud Firestore stores application data. Resend processes notification
-              emails and Frankfurter supplies reference rates.
+              alert preferences, currency targets, and notification records. If you enable push,
+              RateWatch stores a device registration token. Firebase handles authentication and push
+              delivery. Cloud Firestore stores application data. Depending on configuration, Brevo,
+              Gmail or Resend delivers email. Frankfurter supplies daily reference rates and
+              exchangerate.dev supplies delayed intraday observations.
             </p>
             <h2>Purpose and sharing</h2>
             <p>
               We use this data to operate your account, monitor targets, send requested
               notifications, and investigate service failures. Service providers process data for
               these functions. We do not execute transfers or collect payment information.
+            </p>
+            <h2>Browser storage</h2>
+            <p>
+              RateWatch uses browser storage to keep you signed in, remember your favourite pairs,
+              and record push preferences on this device. The service worker stores an offline
+              fallback page. Optional summaries can be turned off in Settings or from the
+              unsubscribe link in each summary.
             </p>
             <h2>Retention and deletion</h2>
             <p>
@@ -397,6 +453,11 @@ export function Legal() {
               delay or prevent alerts. Email provider acceptance does not establish inbox delivery.
               Availability and timing are not guaranteed.
             </p>
+            <h2>External transfer providers</h2>
+            <p>
+              Links to Wise, Remitly and other transfer providers are direct links without referral
+              tracking or commission. Each provider sets its own rates, fees, eligibility and terms.
+            </p>
             <h2>Service scope</h2>
             <p>
               RateWatch supplies reference information, not transfers or financial advice. Payments
@@ -409,9 +470,9 @@ export function Legal() {
           <>
             <h2>Reference information only</h2>
             <p>
-              Rates are daily indicative reference data from Frankfurter, not executable bank or
-              remittance quotes. Data dates are separate from retrieval times. A 15-minute
-              monitoring interval does not imply intraday price updates.
+              Frankfurter publishes daily reference rates. When available, exchangerate.dev provides
+              delayed intraday observations. RateWatch shows when the underlying rate was observed.
+              The rates are indicative and may differ from bank or remittance quotes.
             </p>
             <h2>Make your own comparison</h2>
             <p>

@@ -1,3 +1,5 @@
+import { digestSchedule, unsubscribeDigest } from './digests.js';
+import { pushDevicesFor, setPushDevice } from './push.js';
 import { currencies, worldRates } from './world.js';
 import { syncProfile } from './profile.js';
 import express from 'express';
@@ -9,7 +11,7 @@ import { z } from 'zod';
 import { auth, db, adminReady } from './firebase.js';
 import { alertSchema, pairSchema } from '../shared/domain.js';
 import { getRates, getAlertRates, history } from './rates.js';
-import { HttpError, saveAlert, deleteAlert } from './alerts.js';
+import { HttpError, saveAlert, deleteAlert, setAlertPaused } from './alerts.js';
 import { monitor, enqueue, deliver, log } from './monitor.js';
 export const app = express();
 app.disable('x-powered-by');
@@ -37,7 +39,8 @@ app.use(express.json({ limit: '8kb' }));
 app.get('/api/health', (_req, res) =>
   res.json({ ok: true, configured: !!process.env.FIREBASE_PROJECT_ID && adminReady }),
 );
-app.post('/api/jobs/monitor', async (req, res) => {
+const authorizeMonitor: express.RequestHandler = (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
   const secret = process.env.CRON_SECRET,
     got = req.headers.authorization || '',
     want = 'Bearer ' + secret;
@@ -53,6 +56,19 @@ app.post('/api/jobs/monitor', async (req, res) => {
       503,
       'Firebase Admin is not configured. Set GOOGLE_APPLICATION_CREDENTIALS in .env to your downloaded service-account JSON file, then restart npm run dev.',
     );
+  next();
+};
+app.get('/api/jobs/monitor', authorizeMonitor, async (_req, res) => {
+  const state = (await db.collection('system').doc('monitor').get()).data();
+  const lastCompletedAt = typeof state?.lastCompletedAt === 'number' ? state.lastCompletedAt : null;
+  const ok =
+    lastCompletedAt !== null &&
+    lastCompletedAt <= Date.now() &&
+    Date.now() - lastCompletedAt <= 15 * 60000 &&
+    state?.lastRatesOk === true;
+  res.status(ok ? 200 : 503).json({ ok, lastCompletedAt, lastRatesOk: state?.lastRatesOk ?? null });
+});
+app.post('/api/jobs/monitor', authorizeMonitor, async (_req, res) => {
   const result = await monitor();
   res.status('rateError' in result ? 503 : 200).json(result);
 });
@@ -70,11 +86,41 @@ app.get('/api/world-rates', async (req, res) => {
     throw new HttpError(400, 'Unsupported base currency');
   res.json(await worldRates(base));
 });
+app.get('/api/observed-rate', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const pair = pairSchema.parse(req.query.pair);
+  if (!adminReady || !process.env.EXCHANGERATE_DEV_API_KEY) return res.json(null);
+  const [rate] = await getAlertRates([pair], 'intraday');
+  return res.json(rate ?? null);
+});
 app.get('/api/rates', async (_req, res) => res.json(await getRates()));
-app.get('/api/history', async (req, res) =>
-  res.json(await history(pairSchema.parse(req.query.pair))),
-);
+app.get('/api/history', async (req, res) => {
+  const pair = pairSchema.parse(req.query.pair);
+  const today = new Date().toISOString().slice(0, 10);
+  const range = z
+    .object({ from: z.iso.date().optional(), to: z.iso.date().optional() })
+    .parse(req.query);
+  const end = range.to || today;
+  if (
+    (!range.from && range.to) ||
+    end > today ||
+    (range.from && (range.from > end || Date.parse(end) - Date.parse(range.from) > 1830 * 86400000))
+  ) {
+    throw new HttpError(400, 'Choose a date range of up to five years ending today or earlier.');
+  }
+  res.json(await history(pair, range.from, end));
+});
+app.post('/api/digests/unsubscribe', async (req, res) => {
+  const { value, signature } = z
+    .object({ value: z.string().regex(/^[\w-]{1,256}$/), signature: z.string().max(43) })
+    .strict()
+    .parse(req.body);
+  if (!(await unsubscribeDigest(value, signature)))
+    throw new HttpError(400, 'Invalid unsubscribe link');
+  res.json({ ok: true });
+});
 app.use('/api', async (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
   if (!adminReady)
     throw new HttpError(
       503,
@@ -91,6 +137,14 @@ app.use('/api', async (req, res, next) => {
   }
   next();
 });
+app.put('/api/push-device', async (req, res) => {
+  const input = z
+    .object({ token: z.string().min(30).max(4096), enabled: z.boolean() })
+    .strict()
+    .parse(req.body);
+  await setPushDevice(res.locals.uid, input.token, input.enabled);
+  res.json({ ok: true });
+});
 app.post('/api/profile', async (_req, res) => {
   const user = await auth.getUser(res.locals.uid);
   await syncProfile(user);
@@ -102,7 +156,12 @@ app.get('/api/profile', async (_req, res) =>
 app.patch('/api/profile', async (req, res) => {
   await syncProfile(await auth.getUser(res.locals.uid));
   const input = z
-      .object({ name: z.string().trim().min(1).max(80), email: z.boolean() })
+      .object({
+        name: z.string().trim().min(1).max(80),
+        email: z.boolean(),
+        digestFrequency: z.enum(['off', 'weekly', 'monthly']).optional(),
+        digestPair: pairSchema.optional(),
+      })
       .strict()
       .parse(req.body),
     ref = db.collection('users').doc(res.locals.uid);
@@ -111,7 +170,15 @@ app.patch('/api/profile', async (req, res) => {
     if (!u.exists || u.data()!.deleting) throw new HttpError(409, 'Account unavailable');
     t.update(ref, {
       name: input.name,
-      notificationPreferences: { email: input.email },
+      'notificationPreferences.email': input.email,
+      ...(input.digestFrequency !== undefined && { digestFrequency: input.digestFrequency }),
+      ...(input.digestFrequency === 'off' && { digestDueAt: null }),
+      ...(input.digestFrequency &&
+        input.digestFrequency !== 'off' &&
+        (input.digestFrequency !== u.data()?.digestFrequency || !u.data()?.digestDueAt) && {
+          digestDueAt: digestSchedule(input.digestFrequency, Date.now()).next,
+        }),
+      ...(input.digestPair && { digestPair: input.digestPair }),
       updatedAt: Date.now(),
     });
   });
@@ -174,8 +241,14 @@ async function write(req: express.Request, res: express.Response) {
   const u = await auth.getUser(res.locals.uid);
   if (!u.emailVerified) throw new HttpError(403, 'Verify your email before creating alerts');
   await syncProfile(u);
-  const input = alertSchema.parse(req.body),
-    rates = await getAlertRates([input.pair]),
+  const input = alertSchema.parse(req.body);
+  if (input.channel === 'push' && (await pushDevicesFor(u.uid).limit(1).get()).empty) {
+    throw new HttpError(
+      409,
+      'Enable push on at least one device in notification settings before saving a push alert.',
+    );
+  }
+  const rates = await getAlertRates([input.pair], input.rateSource),
     rate = rates.find((r) => r.currencyPair === input.pair);
   if (!rate) throw new HttpError(503, 'Rate unavailable');
   const id = await saveAlert(
@@ -194,6 +267,11 @@ async function write(req: express.Request, res: express.Response) {
 }
 app.post('/api/alerts', write);
 app.put('/api/alerts/:id', write);
+app.patch('/api/alerts/:id', async (req, res) => {
+  const { paused } = z.object({ paused: z.boolean() }).strict().parse(req.body);
+  await setAlertPaused(res.locals.uid, String(req.params.id), paused);
+  res.json({ ok: true });
+});
 app.delete('/api/alerts/:id', async (req, res) => {
   await deleteAlert(res.locals.uid, String(req.params.id));
   res.json({ ok: true });
@@ -211,7 +289,7 @@ app.delete('/api/account', async (_req, res) => {
       throw new HttpError(409, 'Email processing. Try deletion in two minutes.');
     t.set(u, { deleting: true }, { merge: true });
   });
-  for (const collection of ['alerts', 'notificationLogs'])
+  for (const collection of ['alerts', 'notificationLogs', 'pushDevices'])
     for (;;) {
       const s = await db.collection(collection).where('userId', '==', uid).limit(400).get();
       if (s.empty) break;

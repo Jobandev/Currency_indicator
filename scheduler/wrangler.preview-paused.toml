@@ -1,0 +1,15 @@
+name = "ratewatch-scheduler-preview"
+main = "worker.js"
+compatibility_date = "2026-11-19"
+workers_dev = false
+preview_urls = false
+
+[vars]
+PREVIEW_ONLY = "true"
+
+[triggers]
+crons = []
+
+[observability]
+enabled = true
+head_sampling_rate = 1

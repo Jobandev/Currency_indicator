@@ -28,7 +28,12 @@ async function cancelQueuedNotification(t: Transaction, alert: DocumentSnapshot)
   });
 }
 export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?: string) {
-  if (!fresh(rate)) throw new HttpError(503, 'Fresh reference rates temporarily unavailable');
+  if (
+    rate.currencyPair !== input.pair ||
+    (input.rateSource || 'daily') !== (rate.kind || 'daily') ||
+    !fresh(rate)
+  )
+    throw new HttpError(503, 'Fresh reference rates temporarily unavailable');
   if (matches(rate.rate, input.targetRate, input.condition) && !input.immediate)
     throw new HttpError(
       409,
@@ -60,7 +65,7 @@ export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?:
       userId: uid,
       baseCurrency,
       quoteCurrency,
-      status: 'active',
+      status: old.data()?.status === 'paused' ? 'paused' : 'active',
       generation: (old.data()?.generation || 0) + 1,
       createdAt: old.data()?.createdAt || now,
       updatedAt: now,
@@ -77,5 +82,38 @@ export async function deleteAlert(uid: string, id: string) {
     await cancelQueuedNotification(t, a);
     t.update(u, { updatedAt: Date.now() });
     t.delete(ref);
+  });
+}
+
+export async function setAlertPaused(uid: string, id: string, paused: boolean) {
+  const ref = db.collection('alerts').doc(id);
+  const user = db.collection('users').doc(uid);
+  await db.runTransaction(async (t) => {
+    const account = await t.get(user);
+    const alert = (await t.get(ref)).data();
+    if (!alert || alert.userId !== uid) throw new HttpError(404, 'Alert not found');
+    if (!account.exists || account.data()?.deleting)
+      throw new HttpError(409, 'Account unavailable');
+    if (!['active', 'paused'].includes(alert.status))
+      throw new HttpError(409, 'Only active or paused alerts can be changed here');
+    const status = paused ? 'paused' : 'active';
+    if (alert.status === status) return;
+    if (!paused) {
+      const active = await t.get(
+        db
+          .collection('alerts')
+          .where('userId', '==', uid)
+          .where('status', 'in', ['active', 'processing']),
+      );
+      if (active.docs.length >= 3)
+        throw new HttpError(409, 'The free plan includes three active alerts');
+    }
+    const now = Date.now();
+    t.update(user, { updatedAt: now });
+    t.update(ref, {
+      status,
+      updatedAt: now,
+      generation: paused ? alert.generation : alert.generation + 1,
+    });
   });
 }

@@ -1,3 +1,4 @@
+import InstallAction from './InstallAction';
 import WorldRates from './WorldRates';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -34,7 +35,7 @@ import {
   useRates,
   Verification,
 } from './ui';
-import { type Alert, type Notice, type Rate } from '../shared/domain';
+import { fresh, pairSchema, type Alert, type Notice, type Rate } from '../shared/domain';
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,6 +50,18 @@ export default function Dashboard() {
     [dataLoading, setDataLoading] = useState(true),
     [tab, setTab] = useState('active'),
     [pair, setPair] = useState<string>('NZD/INR');
+  const favoritesKey = 'ratewatch:favorites:' + user?.uid;
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
+      return Array.isArray(saved)
+        ? saved.filter((value) => pairSchema.safeParse(value).success).slice(0, 8)
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [observations, setObservations] = useState<Rate[]>([]);
   const [deleteAlert, setDeleteAlert] = useState<Alert | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -67,6 +80,22 @@ export default function Dashboard() {
       .then(([a, n]) => {
         if (a.status === 'fulfilled') {
           setAlerts(a.value);
+          const intraday = [
+            ...new Set(
+              a.value.filter((alert) => alert.rateSource === 'intraday').map((alert) => alert.pair),
+            ),
+          ];
+          void Promise.allSettled(
+            intraday.map((pair) =>
+              api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair)),
+            ),
+          ).then((results) => {
+            setObservations(
+              results.flatMap((result) =>
+                result.status === 'fulfilled' && result.value ? [result.value] : [],
+              ),
+            );
+          });
           const bases = [...new Set(a.value.map((alert) => alert.baseCurrency))];
           void Promise.allSettled(
             bases.map((base) => api<Rate[]>('/world-rates?base=' + base)),
@@ -87,6 +116,21 @@ export default function Dashboard() {
         setDataLoading(false);
       });
   }, []);
+  useEffect(() => {
+    if (dataLoading || !location.hash) return;
+    const target = location.hash.slice(1);
+    if (target.startsWith('alert-')) {
+      const alert = alerts.find((entry) => 'alert-' + entry.id === target);
+      if (alert) {
+        const desired = alert.status === 'completed' ? 'completed' : 'active';
+        if (tab !== desired) {
+          setTab(desired);
+          return;
+        }
+      }
+    }
+    document.getElementById(target)?.scrollIntoView({ block: 'center' });
+  }, [alerts, dataLoading, location.hash, tab]);
   const active = alerts.filter((a) => a.status !== 'completed'),
     completed = alerts.filter((a) => a.status === 'completed');
   return (
@@ -161,7 +205,7 @@ export default function Dashboard() {
           <div>
             <span>Active alerts</span>
             <strong>
-              {dataLoading ? '\u2014' : active.length}
+              {dataLoading ? '\u2014' : active.filter((alert) => alert.status !== 'paused').length}
               <small> / 3</small>
             </strong>
           </div>
@@ -182,10 +226,8 @@ export default function Dashboard() {
             <Clock3 size={20} />
           </span>
           <div>
-            <span>Monitoring interval</span>
-            <strong>
-              15 <small>min</small>
-            </strong>
+            <span>Monitoring</span>
+            <strong>Scheduled</strong>
           </div>
           <small className="stat-detail">Runs on the server</small>
         </article>
@@ -195,7 +237,7 @@ export default function Dashboard() {
         <RateChart pair={pair} setPair={setPair} rates={allRates} />
         <Calculator rates={rates} />
       </div>
-      <section className="card alerts-panel">
+      <section id="alerts" className="card alerts-panel">
         <div className="section-heading">
           <div>
             <h2>
@@ -266,7 +308,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {(tab === 'active' ? active : completed).map((a) => (
-                  <tr key={a.id}>
+                  <tr key={a.id} id={'alert-' + a.id}>
                     <td>
                       <Currency pair={a.pair} />
                     </td>
@@ -274,12 +316,35 @@ export default function Dashboard() {
                       <strong>
                         {a.condition === 'gte' ? '\u2265' : '\u2264'} {format(a.targetRate)}
                       </strong>
-                      <small>{a.condition === 'gte' ? 'Goes above' : 'Goes below'}</small>
+                      <small>{a.condition === 'gte' ? 'At or above' : 'At or below'}</small>
                     </td>
                     <td>
-                      {allRates.find((r) => r.currencyPair === a.pair)
+                      {a.rateSource !== 'intraday' &&
+                      allRates.find((r) => r.currencyPair === a.pair)
                         ? format(allRates.find((r) => r.currencyPair === a.pair)!.rate)
-                        : '\u2014'}
+                        : a.rateSource === 'intraday'
+                          ? (() => {
+                              const rate = observations.find(
+                                (entry) => entry.currencyPair === a.pair,
+                              );
+                              return rate ? (
+                                <>
+                                  {format(rate.rate)}
+                                  <small>
+                                    {fresh(rate) ? 'Delayed' : 'Older'} observation ?{' '}
+                                    {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
+                                  </small>
+                                </>
+                              ) : (
+                                '\u2014'
+                              );
+                            })()
+                          : '\u2014'}
+                      {a.rateSource === 'intraday' && (
+                        <small>
+                          <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>
+                        </small>
+                      )}
                       {a.triggeredRate && <small>Triggered at {format(a.triggeredRate)}</small>}
                     </td>
                     <td>
@@ -288,12 +353,31 @@ export default function Dashboard() {
                         {a.status === 'active'
                           ? 'Watching'
                           : a.status === 'processing'
-                            ? 'Email queued'
-                            : 'Completed'}
+                            ? 'Notification queued'
+                            : a.status === 'paused'
+                              ? 'Paused'
+                              : 'Completed'}
                       </span>
                     </td>
                     <td>
                       <div className="row-actions">
+                        {(a.status === 'active' || a.status === 'paused') && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api('/alerts/' + a.id, {
+                                  method: 'PATCH',
+                                  body: JSON.stringify({ paused: a.status === 'active' }),
+                                });
+                                reload();
+                              } catch (error) {
+                                toast(friendly(error));
+                              }
+                            }}
+                          >
+                            {a.status === 'active' ? 'Pause' : 'Resume'}
+                          </button>
+                        )}
                         <Link
                           aria-label={a.status === 'completed' ? 'Reactivate alert' : 'Edit alert'}
                           to={'/alerts/' + a.id + '/edit'}
@@ -322,6 +406,42 @@ export default function Dashboard() {
           </div>
         )}
         <SecurityNote />
+      </section>
+      <section className="card chart-card" aria-labelledby="favorites-heading">
+        <h2 id="favorites-heading">Favourite pairs</h2>
+        <p>Save pairs you want to find quickly on this device.</p>
+        <div className="chart-controls">
+          <button
+            className="button secondary"
+            disabled={
+              !pairSchema.safeParse(pair).success ||
+              (favorites.length >= 8 && !favorites.includes(pair))
+            }
+            onClick={() => {
+              const updated = favorites.includes(pair)
+                ? favorites.filter((item) => item !== pair)
+                : [...favorites, pair];
+              setFavorites(updated);
+              try {
+                localStorage.setItem(favoritesKey, JSON.stringify(updated));
+              } catch {
+                /* Available for this session. */
+              }
+            }}
+          >
+            {favorites.includes(pair) ? 'Remove ' : 'Save '}
+            {pair}
+          </button>
+          {favorites.map((item) => (
+            <button className="button secondary" key={item} onClick={() => setPair(item)}>
+              {item}
+            </button>
+          ))}
+        </div>
+        <Link className="text-link" to="/planner">
+          Transfer planner
+        </Link>
+        <InstallAction />
       </section>
       <section id="notifications" className="notification-section">
         <div className="section-heading">
@@ -359,11 +479,17 @@ export default function Dashboard() {
               </span>
               <div>
                 <strong>
+                  {n.notificationType === 'digest'
+                    ? 'Currency summary'
+                    : n.notificationType === 'push'
+                      ? 'Push notification'
+                      : 'Target alert email'}
+                  {' · '}
                   {n.status === 'sent'
-                    ? 'Target reached · email accepted'
+                    ? 'accepted'
                     : n.status === 'review_required'
-                      ? 'Email needs review'
-                      : 'Target reached · email ' + n.status}
+                      ? 'needs review'
+                      : n.status}
                 </strong>
                 <small>
                   {new Date(n.createdAt).toLocaleString('en-NZ')} · {n.attempts} attempt
@@ -517,11 +643,9 @@ function RateChart({
           Chart currency pair
         </label>
         <select id="chart-pair" value={pair} onChange={(e) => setPair(e.target.value)}>
-          {rates
-            .map((r) => r.currencyPair)
-            .map((p) => (
-              <option key={p}>{p}</option>
-            ))}
+          {[...new Set([pair, ...rates.map((r) => r.currencyPair)])].map((p) => (
+            <option key={p}>{p}</option>
+          ))}
         </select>
       </div>
       <div className="chart-summary">

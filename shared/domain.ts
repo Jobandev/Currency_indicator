@@ -58,6 +58,8 @@ export const alertSchema = z
     targetRate: z.number().finite().positive().max(1000000),
     condition: z.enum(['gte', 'lte']),
     immediate: z.boolean().default(false),
+    channel: z.enum(['email', 'push']).optional(),
+    rateSource: z.enum(['daily', 'intraday']).optional(),
   })
   .strict();
 export type AlertInput = z.infer<typeof alertSchema>;
@@ -66,15 +68,17 @@ export type Alert = AlertInput & {
   userId: string;
   baseCurrency: string;
   quoteCurrency: string;
-  status: 'active' | 'processing' | 'completed';
+  status: 'active' | 'paused' | 'processing' | 'completed';
   generation: number;
   createdAt: number;
   updatedAt: number;
   triggeredAt?: number;
   triggeredRate?: number;
+  observation?: Rate;
   notificationStatus?: string;
 };
 export type Rate = {
+  kind?: 'intraday';
   currencyPair: string;
   rate: number;
   provider: string;
@@ -83,7 +87,8 @@ export type Rate = {
 };
 export type Notice = {
   id: string;
-  alertId: string;
+  alertId?: string;
+  notificationType?: 'digest' | 'email' | 'push';
   status: string;
   attempts: number;
   createdAt: number;
@@ -93,4 +98,8 @@ export type Notice = {
 export const matches = (rate: number, target: number, condition: 'gte' | 'lte') =>
   condition === 'gte' ? rate >= target : rate <= target;
 export const fresh = (r: Rate, now = Date.now()) =>
-  now - r.fetchedAt < 20 * 60 * 1000 && now - Date.parse(r.providerTimestamp) < 5 * 86400000;
+  r.fetchedAt <= now &&
+  Date.parse(r.providerTimestamp) <= now &&
+  (r.kind === 'intraday'
+    ? now - r.fetchedAt < 45 * 60000 && now - Date.parse(r.providerTimestamp) < 65 * 60000
+    : now - r.fetchedAt < 20 * 60000 && now - Date.parse(r.providerTimestamp) < 5 * 86400000);

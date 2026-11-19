@@ -14,5 +14,23 @@ export default ts.config(
       ],
     },
   },
+  {
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['scheduler/*.js'],
+    languageOptions: {
+      globals: { fetch: 'readonly', console: 'readonly', URL: 'readonly', AbortSignal: 'readonly' },
+    },
+  },
   { files: ['**/*.js'], languageOptions: { globals: { process: 'readonly' } } },
 );

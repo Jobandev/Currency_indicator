@@ -1,10 +1,23 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, Bell, Mail } from 'lucide-react';
-import { CURRENCY_CODES, matches, type Alert, type Rate } from '../shared/domain';
+import {
+  CURRENCY_CODES,
+  fresh,
+  matches,
+  pairSchema,
+  type Alert,
+  type Rate,
+} from '../shared/domain';
 import { api } from './api';
 import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
 export default function AlertEditor() {
+  const [params] = useSearchParams();
+  const requestedPair = pairSchema.safeParse(params.get('pair'));
+  const [channel, setChannel] = useState<'email' | 'push'>('email');
+  const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
+    params.get('source') === 'intraday' ? 'intraday' : 'daily',
+  );
   const { user } = useContext(Session);
   const { id } = useParams(),
     navigate = useNavigate(),
@@ -29,7 +42,7 @@ export default function AlertEditor() {
       /* The guide still works when browser storage is unavailable. */
     }
   }
-  const [pair, setPair] = useState<string>('NZD/INR'),
+  const [pair, setPair] = useState<string>(requestedPair.success ? requestedPair.data : 'NZD/INR'),
     [target, setTarget] = useState(''),
     [condition, setCondition] = useState<'gte' | 'lte'>('gte'),
     [immediate, setImmediate] = useState(false),
@@ -43,6 +56,8 @@ export default function AlertEditor() {
           const found = a.find((a) => a.id === id);
           if (!found) throw new Error('Alert not found');
           setPair(found.pair);
+          setRateSource(found.rateSource || 'daily');
+          setChannel(found.channel || 'email');
           setTarget(String(found.targetRate));
           setCondition(found.condition);
           setLoaded(true);
@@ -55,7 +70,12 @@ export default function AlertEditor() {
     setRates([]);
     setRateLoading(true);
     setError('');
-    api<Rate[]>('/world-rates?base=' + base)
+    (rateSource === 'intraday'
+      ? api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair)).then((rate) =>
+          rate && fresh(rate) ? [rate] : [],
+        )
+      : api<Rate[]>('/world-rates?base=' + base)
+    )
       .then((rows) => {
         if (live) setRates(rows);
       })
@@ -68,7 +88,7 @@ export default function AlertEditor() {
     return () => {
       live = false;
     };
-  }, [base]);
+  }, [base, pair, rateSource]);
   const rate = rates.find((r) => r.currencyPair === pair),
     satisfied = rate && Number(target) > 0 && matches(rate.rate, Number(target), condition);
   async function submit(e: FormEvent) {
@@ -81,6 +101,8 @@ export default function AlertEditor() {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify({
           pair,
+          rateSource,
+          channel,
           targetRate: Number(target),
           condition,
           immediate: satisfied ? immediate : false,
@@ -97,6 +119,29 @@ export default function AlertEditor() {
   return (
     <Shell>
       <Verification />
+      <div className="rate-source-control">
+        <label>
+          Monitoring source{' '}
+          <select
+            value={rateSource}
+            onChange={(event) =>
+              setRateSource(event.target.value === 'intraday' ? 'intraday' : 'daily')
+            }
+          >
+            <option value="daily">Daily reference</option>
+            <option value="intraday">Delayed intraday</option>
+          </select>
+        </label>
+        {rateSource === 'intraday' && (
+          <p>
+            <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>. Observations are
+            delayed.{' '}
+            {!rateLoading &&
+              !rate &&
+              'An intraday observation is currently unavailable for this pair.'}
+          </p>
+        )}
+      </div>
       <Link className="back-link" to="/dashboard">
         ← Back to overview
       </Link>
@@ -110,6 +155,28 @@ export default function AlertEditor() {
       <div className="editor-layout">
         <section className="card editor">
           <form onSubmit={submit}>
+            <div className="chart-controls">
+              <label>
+                Notify me by
+                <select
+                  value={channel}
+                  onChange={(event) => {
+                    setChannel(event.target.value === 'push' ? 'push' : 'email');
+                    setTestAlert(false);
+                  }}
+                >
+                  <option value="email">Email</option>
+                  {(import.meta.env.VITE_FIREBASE_VAPID_KEY || channel === 'push') && (
+                    <option value="push">Push notification</option>
+                  )}
+                </select>
+              </label>
+            </div>
+            {channel === 'push' && (
+              <p>
+                Enable push on your devices in <Link to="/settings">notification settings</Link>.
+              </p>
+            )}
             {error && (
               <div className="error" role="alert">
                 {error}
@@ -160,8 +227,12 @@ export default function AlertEditor() {
                 <strong>{rate ? format(rate.rate) : '\u2014'}</strong>
                 <small>
                   {rate
-                    ? 'Reference dated ' +
-                      new Date(rate.providerTimestamp).toLocaleDateString('en-NZ')
+                    ? (rate.kind ? 'Delayed observation ? ' : 'Reference dated ') +
+                      (rate.kind
+                        ? new Date(rate.providerTimestamp).toLocaleString('en-NZ')
+                        : new Date(rate.providerTimestamp).toLocaleDateString('en-NZ', {
+                            timeZone: 'UTC',
+                          }))
                     : rateLoading
                       ? 'Loading reference rate...'
                       : 'Reference rate unavailable'}
@@ -224,8 +295,8 @@ export default function AlertEditor() {
               <div className="info">
                 <strong>Your target is already satisfied.</strong>
                 <p>
-                  The latest reference rate meets this condition. Request an email now, or choose a
-                  different target.
+                  The latest reference rate meets this condition. Request a notification now, or
+                  choose a different target.
                 </p>
                 <label className="checkbox">
                   <input
@@ -251,7 +322,7 @@ export default function AlertEditor() {
                 : testAlert
                   ? 'Send test alert'
                   : id
-                    ? 'Save & activate alert'
+                    ? 'Save changes'
                     : 'Start watching my rate'}
               <Bell size={17} />
             </button>
@@ -283,6 +354,7 @@ export default function AlertEditor() {
                   disabled={busy || !loaded || rateLoading || !rate}
                   onClick={() => {
                     if (!rate) return;
+                    setChannel('email');
                     setTarget(String(rate.rate));
                     setCondition('gte');
                     setImmediate(true);
@@ -358,8 +430,7 @@ export default function AlertEditor() {
               </span>
             </div>
             <div className="info">
-              These are daily reference rates. Banks and transfer providers may offer different
-              rates and charge fees.
+              Banks and transfer providers may offer different rates and charge fees.
             </div>
             <button
               type="button"

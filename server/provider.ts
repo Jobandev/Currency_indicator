@@ -8,7 +8,7 @@ const row = z.object({
 });
 export interface RateProvider {
   latest(): Promise<Rate[]>;
-  history(pair: string): Promise<{ date: string; rate: number }[]>;
+  history(pair: string, from?: string, to?: string): Promise<{ date: string; rate: number }[]>;
 }
 async function request(path: string) {
   const response = await fetch('https://api.frankfurter.dev/v2/' + path, {
@@ -35,11 +35,16 @@ export class Frankfurter implements RateProvider {
     }
     return rates.filter((r) => PAIRS.includes(r.currencyPair as (typeof PAIRS)[number]));
   }
-  async history(pair: string) {
+  async history(
+    pair: string,
+    from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
+    to?: string,
+  ) {
     const [base, quote] = pair.split('/');
-    const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-    return (await request('rates?base=' + base + '&quotes=' + quote + '&from=' + from)).map(
-      (r) => ({ date: r.date, rate: r.rate }),
-    );
+    return (
+      await request(
+        'rates?base=' + base + '&quotes=' + quote + '&from=' + from + (to ? '&to=' + to : ''),
+      )
+    ).map((r) => ({ date: r.date, rate: r.rate }));
   }
 }

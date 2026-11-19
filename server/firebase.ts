@@ -1,3 +1,4 @@
+import { verifyPreviewBackend } from '../shared/preview.js';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -9,11 +10,13 @@ if (process.env.USE_EMULATORS === 'true') {
   process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
   process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 }
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  : undefined;
+verifyPreviewBackend(process.env, serviceAccount);
 initializeApp({
   projectId: process.env.FIREBASE_PROJECT_ID || 'demo-ratewatch',
-  credential: process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-    ? cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON))
-    : applicationDefault(),
+  credential: serviceAccount ? cert(serviceAccount) : applicationDefault(),
 });
 export const db = getFirestore();
 export const auth = getAuth();

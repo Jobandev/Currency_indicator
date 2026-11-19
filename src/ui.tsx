@@ -74,7 +74,8 @@ export function PublicHeader() {
       <Brand />
       <nav>
         <a href="/#how-it-works">How it works</a>
-        <a href="/#features">Why RateWatch</a>
+        <Link to="/charts">Charts</Link>
+        <Link to="/planner">Transfer planner</Link>
         <a href="/#faq">FAQs</a>
       </nav>
       <div>
@@ -94,6 +95,7 @@ export function Footer() {
       <Brand />
       <span>Good timing. Better possibilities.</span>
       <div>
+        <Link to="/rates/nzd-inr">Currency pairs</Link>
         <Link to="/legal/privacy">Privacy</Link>
         <Link to="/legal/terms">Terms</Link>
         <Link to="/legal/disclaimer">Disclaimer</Link>
@@ -174,7 +176,27 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </header>
-        <main className="workspace-main">{children}</main>
+        <nav className="mobile-bottom-nav" aria-label="Quick navigation">
+          <Link to="/">
+            <LayoutDashboard size={18} aria-hidden="true" />
+            Home
+          </Link>
+          <Link to="/charts">
+            <ChartNoAxesCombined size={18} aria-hidden="true" />
+            Charts
+          </Link>
+          <Link to="/dashboard#alerts">
+            <Bell size={18} aria-hidden="true" />
+            Alerts
+          </Link>
+          <NavLink to="/settings">
+            <Settings size={18} aria-hidden="true" />
+            Profile
+          </NavLink>
+        </nav>
+        <main id="main-content" tabIndex={-1} className="workspace-main">
+          {children}
+        </main>
         <div className="app-footer">
           <span>Made for better moments.</span>
           <span>
@@ -232,8 +254,8 @@ export function friendly(e: unknown) {
 export function SecurityNote() {
   return (
     <div className="panel-footer">
-      <ShieldCheck size={14} /> Monitoring continues when you close this page. Rates update daily at
-      the source.
+      <ShieldCheck size={14} /> Monitoring runs on the server. Each alert uses the rate source you
+      selected.
     </div>
   );
 }

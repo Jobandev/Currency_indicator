@@ -10,31 +10,27 @@ import {
   Plus,
   ShieldCheck,
 } from 'lucide-react';
-import { PublicHeader, Footer, Currency, HeroNote, useRates, format } from './ui';
+import { PublicHeader, Footer, Currency, useRates, format } from './ui';
+import Converter from './Converter';
+import HistoryPreview from './HistoryPreview';
+import InstallAction from './InstallAction';
 export default function Landing() {
-  const { rates, error, loading, load } = useRates(),
-    r = rates.find((r) => r.currencyPair === 'NZD/INR');
+  const { rates, error, loading, load } = useRates();
   return (
     <>
       <PublicHeader />
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <section className="hero">
           <div className="hero-copy">
-            <span className="eyebrow">
-              <span className="green-dot" /> A LITTLE TIMING MAKES A BIG DIFFERENCE
-            </span>
             <h1>
-              Never miss your
+              Your money.
               <br />
-              perfect <em>exchange rate.</em>
+              <em>Your rate.</em>
             </h1>
-            <p>
-              Your money has places to go. Set your ideal rate and we’ll email you when it arrives.
-              Less checking. More living.
-            </p>
+            <p>Choose your currency, set your target, and get notified when the rate is reached.</p>
             <div className="hero-actions">
               <Link className="button" to="/register">
-                Find your better moment <ArrowUpRight size={19} />
+                Create free alert <ArrowUpRight size={19} />
               </Link>
               <a className="text-link" href="#how-it-works">
                 See how it works <ArrowRight size={17} />
@@ -48,47 +44,11 @@ export default function Landing() {
                 <Check size={15} /> No card required
               </span>
               <span>
-                <Check size={15} /> Always watching
+                <Check size={15} /> Automatic monitoring
               </span>
             </div>
           </div>
-          <div className="hero-visual">
-            <div className="orbit" />
-            <div className="orbit orbit-two" />
-            <span className="floating-currency currency-one">₹</span>
-            <span className="floating-currency currency-two">$</span>
-            <div className="hero-rate card">
-              <div className="split">
-                <span className="eyebrow">YOUR NEXT OPPORTUNITY</span>
-                <span className="pill">Reference rate</span>
-              </div>
-              <Currency pair="NZD/INR" />
-              <div className="hero-number">
-                {r ? format(r.rate) : '\u2014'} <small>INR</small>
-              </div>
-              <p className="muted">
-                1 New Zealand dollar ·{' '}
-                {r
-                  ? new Date(r.providerTimestamp).toLocaleDateString('en-NZ')
-                  : 'Awaiting provider data'}
-              </p>
-              <div className="decor-chart" aria-hidden="true">
-                <svg viewBox="0 0 400 95">
-                  <path
-                    d="M0 80 L25 70 L50 75 L75 55 L100 60 L125 36 L150 49 L175 25 L200 38 L225 22 L250 30 L275 12 L300 20 L325 4 L350 15 L375 0 L400 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                  />
-                </svg>
-              </div>
-              <small className="muted">Illustration · daily reference rates, not live quotes</small>
-              <Link className="button full" to="/register">
-                <Bell size={17} /> Set my target rate
-              </Link>
-            </div>
-            <HeroNote />
-          </div>
+          <Converter />
         </section>
         <section className="rate-strip">
           <div>
@@ -106,6 +66,10 @@ export default function Landing() {
               <div className="strip-rate" key={r.currencyPair}>
                 <Currency pair={r.currencyPair} />
                 <strong>{format(r.rate)}</strong>
+                <small>
+                  Daily reference ·{' '}
+                  {new Date(r.providerTimestamp).toLocaleDateString('en-NZ', { timeZone: 'UTC' })}
+                </small>
               </div>
             ))
           )}
@@ -130,7 +94,7 @@ export default function Landing() {
               {
                 n: '03',
                 title: 'We’ll keep watch',
-                text: 'Close the tab. Get on with your day. We’ll email when the reference rate meets your target.',
+                text: 'Close the tab. Get on with your day. We’ll notify you when the monitored rate meets your target.',
                 Icon: Mail,
               },
             ].map(({ n, title, text, Icon }) => (
@@ -145,6 +109,7 @@ export default function Landing() {
             ))}
           </div>
         </section>
+        <HistoryPreview />
         <section id="features" className="feature-section">
           <div>
             <span className="eyebrow">LESS NOISE. MORE PEACE OF MIND.</span>
@@ -176,7 +141,7 @@ export default function Landing() {
               {
                 Icon: Mail,
                 title: 'One target. One notification.',
-                text: 'A clear email when your condition is met. No repeated alerts.',
+                text: 'A notification when your condition is met. No repeated alerts.',
               },
             ].map(({ Icon, title, text }) => (
               <article key={title}>
@@ -195,11 +160,11 @@ export default function Landing() {
           {[
             [
               'Is RateWatch really free?',
-              'Yes. The MVP includes up to three active email alerts. No payment details are required.',
+              'Yes. RateWatch includes up to three active alerts. No payment details are required.',
             ],
             [
               'Are these live exchange rates?',
-              'No. Frankfurter provides daily reference rates. We check the latest available data every 15 minutes and show its date. Your transfer provider may quote a different rate.',
+              'Frankfurter provides daily reference rates. Where available, exchangerate.dev provides delayed observations checked about every 30 minutes. Your transfer provider may quote a different rate.',
             ],
             [
               'Does my browser need to stay open?',
@@ -207,7 +172,7 @@ export default function Landing() {
             ],
             [
               'What happens when my target is reached?',
-              'Your alert is queued for one email. When the provider accepts it, the alert is completed. You can reactivate it anytime.',
+              'Your alert is queued once. When the selected channel accepts it, the alert is completed. You can reactivate it anytime.',
             ],
             [
               'Can I exchange money here?',
@@ -229,6 +194,10 @@ export default function Landing() {
           <Link className="button light" to="/register">
             Start watching for free <ArrowUpRight size={18} />
           </Link>
+        </section>
+        <section className="section install-section">
+          <h2>Take RateWatch with you</h2>
+          <InstallAction />
         </section>
       </main>
       <Footer />

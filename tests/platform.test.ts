@@ -450,3 +450,182 @@ it('supports featured cross-currency alerts and sends their pairs to monitoring'
   expect(mocks.latest).toHaveBeenCalledWith(['NZD/JPY']);
   expect(records.get('alerts/' + id).status).toBe('active');
 });
+
+it('pauses only an owned alert and resumes with a new generation within the active limit', async () => {
+  const id = await make();
+  const path = '/api/alerts/' + id;
+  await request(app)
+    .patch(path)
+    .set('Authorization', 'Bearer bob')
+    .send({ paused: true })
+    .expect(404);
+  await request(app)
+    .patch(path)
+    .set('Authorization', 'Bearer alice')
+    .send({ paused: true })
+    .expect(200);
+  await enqueue(id, { ...rate(), rate: 54 });
+  expect(records.get('alerts/' + id).status).toBe('paused');
+  expect(records.has('notificationLogs/alert-' + id + '-1')).toBe(false);
+  const active = await Promise.all([make(), make(), make()]);
+  await request(app)
+    .patch(path)
+    .set('Authorization', 'Bearer alice')
+    .send({ paused: false })
+    .expect(409);
+  await deleteAlert('alice', active[0]);
+  await request(app)
+    .patch(path)
+    .set('Authorization', 'Bearer alice')
+    .send({ paused: false })
+    .expect(200);
+  expect(records.get('alerts/' + id)).toMatchObject({ status: 'active', generation: 2 });
+});
+
+it('never evaluates an intraday alert against a daily reference observation', async () => {
+  const id = await saveAlert(
+    'alice',
+    { ...input, rateSource: 'intraday' },
+    {
+      ...rate(),
+      kind: 'intraday',
+    },
+  );
+  await enqueue(id, { ...rate(), rate: 54 });
+  expect(records.get('alerts/' + id).status).toBe('active');
+  await enqueue(id, { ...rate(), kind: 'intraday', rate: 54 });
+  expect(records.get('alerts/' + id).observation.kind).toBe('intraday');
+});
+
+it('validates custom history ranges before contacting Frankfurter', async () => {
+  mocks.history.mockResolvedValue([]);
+  await request(app).get('/api/history?pair=NZD%2FINR&from=2000-01-01&to=2024-01-01').expect(400);
+  expect(mocks.history).not.toHaveBeenCalled();
+  await request(app).get('/api/history?pair=NZD%2FINR&from=2023-04-01&to=2024-01-01').expect(200);
+  expect(mocks.history).toHaveBeenCalledWith('NZD/INR', '2023-04-01', '2024-01-01');
+});
+
+it('queues one opted-in summary and honours its signed unsubscribe link', async () => {
+  const { queueDigests } = await import('../server/digests');
+  const now = Date.parse('2026-11-02T08:00:00Z');
+  vi.stubEnv('DIGEST_SECRET', 'test-digest-secret-with-at-least-32-characters');
+  vi.stubEnv('APP_URL', 'https://ratewatch.example');
+  Object.assign(records.get('users/alice'), {
+    emailVerified: true,
+    digestFrequency: 'weekly',
+    digestPair: 'NZD/INR',
+    digestDueAt: now - 1,
+  });
+  mocks.history.mockResolvedValue([{ date: '2026-10-30', rate: 52 }]);
+  await Promise.all([queueDigests(now), queueDigests(now)]);
+  const jobs = [...records.entries()].filter(([path]) =>
+    path.startsWith('notificationLogs/digest-'),
+  );
+  expect(jobs).toHaveLength(1);
+  const [path, job] = jobs[0];
+  const match = job.payload.text.match(/#([\w-]+)\.([\w-]+)/);
+  expect(match).not.toBeNull();
+  const [, value, signature] = match;
+  await request(app)
+    .post('/api/digests/unsubscribe')
+    .send({ value, signature: signature.slice(1) })
+    .expect(400);
+  await request(app).post('/api/digests/unsubscribe').send({ value, signature }).expect(200);
+  expect(records.get('users/alice').digestFrequency).toBe('off');
+  const sender = vi.fn();
+  await deliver(path.split('/').at(-1)!, sender, now);
+  expect(sender).not.toHaveBeenCalled();
+  expect(records.get(path).status).toBe('cancelled');
+});
+
+it('requires an enabled device to save a push alert and holds it active after opt-out', async () => {
+  const path = '/api/alerts';
+  const token = 'test-registration-token-for-this-device';
+  const send = (body: object) =>
+    request(app).post(path).set('Authorization', 'Bearer alice').send(body);
+  await send({ ...input, channel: 'push' }).expect(409);
+  const setDevice = (enabled: boolean) =>
+    request(app)
+      .put('/api/push-device')
+      .set('Authorization', 'Bearer alice')
+      .send({ token, enabled });
+  await setDevice(true).expect(200);
+  const {
+    body: { id },
+  } = await send({ ...input, channel: 'push' }).expect(201);
+  await setDevice(false).expect(200);
+  await enqueue(id, { ...rate(), rate: 54 });
+  expect(records.get('alerts/' + id).status).toBe('active');
+});
+
+it('evaluates intraday alerts even when the daily provider fails', async () => {
+  await make();
+  const observation: Rate = { ...rate(), kind: 'intraday', provider: 'exchangerate.dev' };
+  const id = await saveAlert('alice', { ...input, rateSource: 'intraday' }, observation);
+  mocks.latest.mockImplementation(async (_pairs, source) => {
+    if (source !== 'intraday') throw new Error('Reference provider down');
+    return [{ ...observation, rate: 54 }];
+  });
+  vi.stubEnv('EMAIL_PROVIDER', 'resend');
+  vi.stubEnv('RESEND_API_KEY', 'test-key');
+  vi.stubEnv('EMAIL_FROM', 'RateWatch <sender@example.test>');
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ id: 'accepted' }));
+  expect(await monitor()).toMatchObject({ rateError: true });
+  expect(records.get('alerts/' + id).status).toBe('completed');
+});
+
+it('exposes recent monitor health only to the scheduler credential', async () => {
+  const secret = 'test-secret-'.repeat(3);
+  vi.stubEnv('CRON_SECRET', secret);
+  const path = '/api/jobs/monitor';
+  await request(app).get(path).expect(401);
+  const check = () =>
+    request(app)
+      .get(path)
+      .set('Authorization', 'Bearer ' + secret);
+  await check().expect(503).expect('Cache-Control', 'no-store');
+  records.set('system/monitor', {
+    lastCompletedAt: Date.now(),
+    lastRatesOk: true,
+    token: 'private',
+  });
+  await check()
+    .expect(200)
+    .expect(({ body }) => {
+      expect(body).toMatchObject({ ok: true, lastRatesOk: true });
+      expect(body).not.toHaveProperty('token');
+    });
+  records.set('system/monitor', { lastCompletedAt: Date.now() - 16 * 60000, lastRatesOk: true });
+  await check().expect(503);
+});
+
+it('shares the intraday poll budget across overlapping ticks and clamps the interval to 30 minutes', async () => {
+  const { refreshIntraday } = await import('../server/intraday');
+  const now = Date.now();
+  vi.stubEnv('EXCHANGERATE_DEV_API_KEY', 'test-key');
+  vi.stubEnv('RATE_MONITOR_INTERVAL_MINUTES', '5');
+  const upstream = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async () =>
+      Response.json({
+        base: 'USD',
+        result: 'success',
+        rates: {},
+        effective_at: {},
+        sources: {},
+        stale: {},
+      }),
+    );
+  await Promise.all([refreshIntraday(now), refreshIntraday(now)]);
+  await refreshIntraday(now + 5 * 60000);
+  await refreshIntraday(now + 29 * 60000);
+  expect(upstream).toHaveBeenCalledTimes(1);
+  expect(upstream).toHaveBeenCalledWith(
+    expect.stringContaining('/v1/latest/USD?symbols='),
+    expect.objectContaining({
+      headers: { Authorization: 'Bearer test-key' },
+    }),
+  );
+  await refreshIntraday(now + 30 * 60000);
+  expect(upstream).toHaveBeenCalledTimes(2);
+});
