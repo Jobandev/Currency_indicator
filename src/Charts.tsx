@@ -12,6 +12,7 @@ import {
 import { CURRENCY_CODES } from '../shared/domain';
 import { api } from './api';
 import RateCalendar from './RateCalendar';
+import RateOutlook from './RateOutlook';
 import { Footer, format, PublicHeader } from './ui';
 
 type Point = { date: string; rate: number };
@@ -312,6 +313,7 @@ export default function Charts() {
             </>
           )}
         </section>
+        {base !== quote && <RateOutlook key={base + '/' + quote} pair={base + '/' + quote} />}
         {points.length > 0 && (
           <RateCalendar key={query} points={points} from={from} to={to} quote={quote} />
         )}

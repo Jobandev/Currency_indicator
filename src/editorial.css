@@ -582,3 +582,31 @@ footer > span {
 .history-page .chart-area {
   overflow: clip;
 }
+
+.rw-outlook h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.rw-outlook h2 > svg {
+  color: #5750ac;
+}
+.rw-outlook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.rw-outlook-grid article {
+  padding: 1rem;
+  background: #ebe7fa;
+  border-radius: 0.75rem;
+}
+.rw-outlook-grid article > strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+}
+.rw-outlook details {
+  margin-top: 0.75rem;
+}
