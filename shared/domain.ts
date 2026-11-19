@@ -101,7 +101,7 @@ export type Rate = {
 export type Notice = {
   id: string;
   alertId?: string;
-  notificationType?: 'digest' | 'email' | 'push';
+  notificationType?: 'digest' | 'email' | 'push' | 'rate-tip';
   status: string;
   attempts: number;
   createdAt: number;

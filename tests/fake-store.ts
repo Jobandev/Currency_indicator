@@ -78,7 +78,9 @@ class Query {
             ? d.data()[f] === v
             : op === 'in'
               ? v.includes(d.data()[f])
-              : d.data()[f] <= v,
+              : op === '>='
+                ? d.data()[f] >= v
+                : d.data()[f] <= v,
         ),
       );
     if (this.sort)

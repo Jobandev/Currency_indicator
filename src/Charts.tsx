@@ -13,6 +13,7 @@ import { CURRENCY_CODES } from '../shared/domain';
 import { api } from './api';
 import RateCalendar from './RateCalendar';
 import RateOutlook from './RateOutlook';
+import MonthlyRateDays from './MonthlyRateDays';
 import { Footer, format, PublicHeader } from './ui';
 
 type Point = { date: string; rate: number };
@@ -317,16 +318,25 @@ export default function Charts() {
         {points.length > 0 && (
           <RateCalendar key={query} points={points} from={from} to={to} quote={quote} />
         )}
+        {points.length > 0 && (
+          <MonthlyRateDays
+            points={points}
+            from={from}
+            to={to}
+            pair={base + '/' + quote}
+            expandRange={() => setPeriod('1826')}
+          />
+        )}
         <section className="chart-card">
-          <h2>Historically observed patterns</h2>
+          <h2>How rates moved in the past</h2>
           <p>
-            Each percentage change is grouped by the UTC date of the later observation. Missing
-            dates are left out, so some changes span multiple calendar days. Past performance does
-            not guarantee future exchange rates.
+            A plus sign means the rate rose on average. A minus sign means it fell on average. These
+            are past movements. They can help you read the history, but they can’t tell you which
+            day will have the best rate next time.
           </p>
           <div className="chart-controls">
             <label>
-              Group by
+              Compare by
               <select value={group} onChange={(event) => setGroup(Number(event.target.value))}>
                 {groups.map((entry, index) => (
                   <option key={entry.label} value={index}>
@@ -342,7 +352,7 @@ export default function Charts() {
                 <tr>
                   <th scope="col">{groups[group].label}</th>
                   <th scope="col">Average change</th>
-                  <th scope="col">Samples</th>
+                  <th scope="col">Past changes counted</th>
                 </tr>
               </thead>
               <tbody>
@@ -353,8 +363,11 @@ export default function Charts() {
                       <th scope="row">{groups[group].name(key)}</th>
                       <td>
                         {values.length >= 10
-                          ? average(values).toFixed(3) + '%'
-                          : 'Insufficient samples'}
+                          ? new Intl.NumberFormat('en-NZ', {
+                              signDisplay: 'exceptZero',
+                              maximumFractionDigits: 3,
+                            }).format(average(values)) + '%'
+                          : 'Too few rate updates'}
                       </td>
                       <td>{values.length}</td>
                     </tr>

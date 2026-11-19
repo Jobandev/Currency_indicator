@@ -1,4 +1,5 @@
 import { queueDigests } from './digests.js';
+import { queueRateTips } from './rate-tips.js';
 import { pushDevicesFor, sendPush } from './push.js';
 import { refreshIntraday } from './intraday.js';
 import { randomUUID } from 'node:crypto';
@@ -67,7 +68,10 @@ export async function enqueue(id: string, rate: Rate) {
   });
 }
 function deliveryPaused() {
-  return process.env.VERCEL_ENV === 'preview' || process.env.NOTIFICATION_DELIVERY_DISABLED === 'true';
+  const environment = process.env.VERCEL_ENV;
+  const disabled = process.env.NOTIFICATION_DELIVERY_DISABLED;
+  if (environment === 'preview' || disabled === 'true') return true;
+  return (environment === 'production' || process.env.VERCEL === '1') && disabled !== 'false';
 }
 export async function deliver(id: string, sender = sendEmail, now = Date.now()) {
   if (deliveryPaused()) return;
@@ -86,6 +90,9 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       (j.notificationType === 'digest' &&
         (u.data()!.digestFrequency !== j.frequency ||
           (u.data()!.digestPair || 'NZD/INR') !== j.pair)) ||
+      (j.notificationType === 'rate-tip' &&
+        (j.expiresAt <= now || u.data()!.rateTips !== true ||
+          u.data()!.rateTipPair !== j.pair || u.data()!.notificationPreferences?.email === false)) ||
       (j.notificationType === 'email' && u.data()!.notificationPreferences?.email === false)
     ) {
       const alert = j.alertId ? db.collection('alerts').doc(j.alertId) : null;
@@ -245,6 +252,12 @@ export async function monitor() {
     } catch {
       rateError = true;
       log('digest_queue_error');
+    }
+    try {
+      await queueRateTips(now);
+    } catch {
+      rateError = true;
+      log('rate_tip_queue_error');
     }
     let processed = 0;
     if (!deliveryPaused()) {

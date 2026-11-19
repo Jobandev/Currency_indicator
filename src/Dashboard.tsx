@@ -489,9 +489,11 @@ export default function Dashboard() {
                 <strong>
                   {n.notificationType === 'digest'
                     ? 'Currency summary'
-                    : n.notificationType === 'push'
-                      ? 'Push notification'
-                      : 'Target alert email'}
+                    : n.notificationType === 'rate-tip'
+                      ? '30-day high or low email'
+                      : n.notificationType === 'push'
+                        ? 'Push notification'
+                        : 'Target alert email'}
                   {' · '}
                   {n.status === 'sent'
                     ? 'accepted'

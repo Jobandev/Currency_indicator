@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { auth, db, adminReady } from './firebase.js';
-import { alertSchema, pairSchema, transferPlanSchema } from '../shared/domain.js';
+import { alertSchema, PAIRS, pairSchema, transferPlanSchema } from '../shared/domain.js';
 import { getRates, getAlertRates, history } from './rates.js';
 import { HttpError, saveAlert, deleteAlert, setAlertPaused } from './alerts.js';
 import { monitor, enqueue, deliver, log } from './monitor.js';
@@ -161,6 +161,8 @@ app.patch('/api/profile', async (req, res) => {
         email: z.boolean(),
         digestFrequency: z.enum(['off', 'weekly', 'monthly']).optional(),
         digestPair: pairSchema.optional(),
+        rateTips: z.boolean().optional(),
+        rateTipPair: z.enum(PAIRS).optional(),
       })
       .strict()
       .parse(req.body),
@@ -168,6 +170,15 @@ app.patch('/api/profile', async (req, res) => {
   await db.runTransaction(async (t) => {
     const u = await t.get(ref);
     if (!u.exists || u.data()!.deleting) throw new HttpError(409, 'Account unavailable');
+    const profile = u.data()!;
+    const rateTips = input.rateTips ?? profile.rateTips === true;
+    const rateTipPair = input.rateTipPair ?? profile.rateTipPair ?? 'NZD/INR';
+    const rateTipDueAt =
+      rateTips && input.email
+        ? profile.rateTipPair === rateTipPair && profile.rateTipDueAt
+          ? profile.rateTipDueAt
+          : Date.now()
+        : null;
     t.update(ref, {
       name: input.name,
       'notificationPreferences.email': input.email,
@@ -179,6 +190,9 @@ app.patch('/api/profile', async (req, res) => {
           digestDueAt: digestSchedule(input.digestFrequency, Date.now()).next,
         }),
       ...(input.digestPair && { digestPair: input.digestPair }),
+      ...(input.rateTips !== undefined || profile.rateTips === true
+        ? { rateTips, rateTipPair, rateTipDueAt }
+        : {}),
       updatedAt: Date.now(),
     });
   });

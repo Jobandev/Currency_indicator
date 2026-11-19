@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { records, fakeDb } from './fake-store';
 const mocks = vi.hoisted(() => ({
@@ -25,6 +25,7 @@ import { enqueue, deliver, monitor } from '../server/monitor';
 import { alertSchema, matches, type Rate, PAIRS } from '../shared/domain';
 import { Frankfurter } from '../server/provider';
 import { sendEmail } from '../server/email';
+import { findRateExtreme, queueRateTips } from '../server/rate-tips';
 const input = {
   pair: 'NZD/INR' as const,
   targetRate: 53,
@@ -554,6 +555,55 @@ it('queues one opted-in summary and honours its signed unsubscribe link', async 
   expect(records.get(path).status).toBe('cancelled');
 });
 
+const tipDate = Date.parse('2026-11-20T10:00:00Z');
+const tipHistory = (latest: number) => Array.from({ length: 20 }, (_, index) => ({
+  date: new Date(tipDate - (19 - index) * 86400000).toISOString().slice(0, 10),
+  rate: index === 19 ? latest : index % 2 ? 49 : 51,
+}));
+
+it('only flags fresh, distinct reference highs or lows', () => {
+  expect(findRateExtreme(tipHistory(52), tipDate)?.direction).toBe('high');
+  expect(findRateExtreme(tipHistory(48), tipDate)?.direction).toBe('low');
+  expect(findRateExtreme(tipHistory(51), tipDate)).toBeNull();
+  expect(findRateExtreme(tipHistory(52).slice(-10), tipDate)).toBeNull();
+  expect(findRateExtreme(tipHistory(52), tipDate + 4 * 86400000)).toBeNull();
+});
+
+it('queues at most one high or low email per month for an opted-in user without a target', async () => {
+  vi.spyOn(Date, 'now').mockReturnValue(tipDate);
+  vi.stubEnv('APP_URL', 'https://ratewatch.example');
+  vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', 'true');
+  const preferences = (rateTips: boolean) =>
+    request(app).patch('/api/profile').set('Authorization', 'Bearer alice')
+      .send({ name: 'Alice', email: true, rateTips, rateTipPair: 'NZD/INR' });
+  await preferences(true).expect(200);
+  mocks.history.mockResolvedValue(tipHistory(50));
+  await queueRateTips(tipDate);
+  expect(records.get('notificationLogs/rate-tip-alice-2026-11')).toBeUndefined();
+  expect(mocks.history).toHaveBeenCalledTimes(1);
+  await queueRateTips(tipDate);
+  expect(mocks.history).toHaveBeenCalledTimes(1);
+
+  const tomorrow = tipDate + 86400000;
+  mocks.history.mockResolvedValue([...tipHistory(50), { date: '2026-11-21', rate: 52 }]);
+  await Promise.all([queueRateTips(tomorrow), queueRateTips(tomorrow)]);
+  const jobId = 'rate-tip-alice-2026-11';
+  const jobPath = 'notificationLogs/' + jobId;
+  const job = records.get(jobPath);
+  expect(job.payload.subject).toBe('NZD/INR reached a new 30-day high');
+  expect(job.payload.text).toContain('/alerts/new?pair=NZD%2FINR');
+  expect([...records.keys()].filter(path => path.startsWith('notificationLogs/'))).toEqual([jobPath]);
+  const sender = vi.fn();
+  await deliver(jobId, sender, tomorrow);
+  expect(sender).not.toHaveBeenCalled();
+  expect(records.get(jobPath).status).toBe('pending');
+  vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', 'false');
+  await preferences(false).expect(200);
+  await deliver(jobId, sender, tomorrow);
+  expect(sender).not.toHaveBeenCalled();
+  expect(records.get(jobPath).status).toBe('cancelled');
+});
+
 it('requires an enabled device to save a push alert and holds it active after opt-out', async () => {
   const path = '/api/alerts';
   const token = 'test-registration-token-for-this-device';
@@ -606,6 +656,18 @@ it.each(['email', 'push'] as const)(
     expect(mocks.sendPush).not.toHaveBeenCalled();
   },
 );
+
+it('keeps Vercel Production delivery paused when the setting is absent', async () => {
+  const id = await make();
+  vi.stubEnv('VERCEL_ENV', 'production');
+  vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', undefined);
+  await enqueue(id, { ...rate(), rate: 54 });
+  const jobId = 'alert-' + id + '-1';
+  const sender = vi.fn();
+  await deliver(jobId, sender);
+  expect(sender).not.toHaveBeenCalled();
+  expect(records.get('notificationLogs/' + jobId).status).toBe('pending');
+});
 
 it('queues Preview push without sending and completes through mocked FCM outside Preview', async () => {
   const tokens = ['valid-registration-token-example', 'expired-registration-token-example'];

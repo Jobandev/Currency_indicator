@@ -1,22 +1,28 @@
-import { useContext, useEffect, useState, type FormEvent } from 'react';
+﻿import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   GoogleAuthProvider,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
   type User,
 } from 'firebase/auth';
 import { ArrowRight, Check, Globe2, Mail, Trash2, Bell } from 'lucide-react';
+import { PAIRS } from '../shared/domain';
 import PushSettings from './PushSettings';
 import InstallAction from './InstallAction';
 import { auth } from './firebase';
 import { api } from './api';
 import { Footer, friendly, PublicHeader, Session, Shell, Toast } from './ui';
+
+let googleRedirectResult: ReturnType<typeof getRedirectResult> | undefined;
+
 export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
   const [params] = useSearchParams();
   const next = params.get('next') || '';
@@ -26,8 +32,42 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
   const { user } = useContext(Session),
     toast = useContext(Toast),
     navigate = useNavigate(),
+    [checkingRedirect, setCheckingRedirect] = useState(Boolean(auth) && mode !== 'reset'),
+    [popupBlocked, setPopupBlocked] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const localGoogleUrl =
+    import.meta.env.DEV &&
+    import.meta.env.VITE_USE_EMULATORS !== 'true' &&
+    window.location.hostname === '127.0.0.1'
+      ? window.location.origin.replace('127.0.0.1', 'localhost') +
+        window.location.pathname +
+        window.location.search
+      : null;
+
+  useEffect(() => {
+    if (!auth || mode === 'reset') return;
+    let active = true;
+    googleRedirectResult ??= getRedirectResult(auth);
+    void googleRedirectResult
+      .then(async (result) => {
+        if (!active || !result) return;
+        await api('/profile', { method: 'POST' });
+        if (!active) return;
+        toast('Signed in with Google.');
+        navigate(destination, { replace: true });
+      })
+      .catch((failure) => {
+        if (active) setError(friendly(failure));
+      })
+      .finally(() => {
+        if (active) setCheckingRedirect(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [destination, mode, navigate, toast]);
+
   async function finish(u: User) {
     await api('/profile', { method: 'POST' });
     if (mode === 'register') await sendEmailVerification(u);
@@ -66,24 +106,33 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
       setBusy(false);
     }
   }
-  async function google() {
+  async function google(redirect = false) {
     if (!auth) {
       setError('Firebase is not configured. See README.md.');
       return;
     }
     setBusy(true);
+    setError('');
     try {
+      if (redirect) {
+        await signInWithRedirect(auth, new GoogleAuthProvider());
+        return;
+      }
       await signInWithPopup(auth, new GoogleAuthProvider());
       await api('/profile', { method: 'POST' });
       navigate(destination);
       toast('Signed in with Google.');
     } catch (e) {
+      if (e instanceof Error && 'code' in e && e.code === 'auth/popup-blocked') {
+        setPopupBlocked(true);
+      }
       setError(friendly(e));
     } finally {
       setBusy(false);
     }
   }
-  if (user && mode !== 'reset' && !busy && !error) return <Navigate to={destination} />;
+  if (user && mode !== 'reset' && !checkingRedirect && !busy && !error)
+    return <Navigate to={destination} />;
   return (
     <>
       <PublicHeader />
@@ -197,15 +246,22 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
               <div className="divider">
                 <span>or continue with</span>
               </div>
-              <button
-                disabled={busy}
-                onClick={google}
-                className="button outline full"
-                aria-describedby={mode === 'register' ? 'registration-policies' : undefined}
-              >
-                <Globe2 size={18} />
-                Google
-              </button>
+              {localGoogleUrl ? (
+                <a className="button outline full" href={localGoogleUrl}>
+                  <Globe2 size={18} aria-hidden="true" /> Continue with Google on localhost
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy || checkingRedirect}
+                  onClick={() => void google(popupBlocked)}
+                  className="button outline full"
+                  aria-describedby={mode === 'register' ? 'registration-policies' : undefined}
+                >
+                  <Globe2 size={18} aria-hidden="true" />
+                  {popupBlocked ? 'Continue with Google in this tab' : 'Google'}
+                </button>
+              )}
             </>
           )}
           <p className="auth-bottom">
@@ -240,6 +296,8 @@ export function Profile() {
     [email, setEmail] = useState(true),
     [digestFrequency, setDigestFrequency] = useState<'off' | 'weekly' | 'monthly'>('off'),
     [digestPair, setDigestPair] = useState('NZD/INR'),
+    [rateTips, setRateTips] = useState(false),
+    [rateTipPair, setRateTipPair] = useState<string>('NZD/INR'),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [loaded, setLoaded] = useState(false);
@@ -249,12 +307,16 @@ export function Profile() {
       notificationPreferences?: { email: boolean };
       digestFrequency?: 'off' | 'weekly' | 'monthly';
       digestPair?: string;
+      rateTips?: boolean;
+      rateTipPair?: string;
     }>('/profile')
       .then((p) => {
         setName(p.name || user?.displayName || '');
         setEmail(p.notificationPreferences?.email !== false);
         setDigestFrequency(p.digestFrequency || 'off');
         setDigestPair(p.digestPair || 'NZD/INR');
+        setRateTips(p.rateTips === true);
+        setRateTipPair(p.rateTipPair || 'NZD/INR');
         setLoaded(true);
       })
       .catch((e) => setError(e.message));
@@ -265,7 +327,7 @@ export function Profile() {
     try {
       await api('/profile', {
         method: 'PATCH',
-        body: JSON.stringify({ name, email, digestFrequency, digestPair }),
+        body: JSON.stringify({ name, email, digestFrequency, digestPair, rateTips, rateTipPair }),
       });
       await user?.reload();
       toast('Preferences saved.');
@@ -314,6 +376,32 @@ export function Profile() {
               Email rate notifications
             </label>
             <p className="muted">Turning this off pauses new email triggers.</p>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={rateTips}
+                disabled={!email && !rateTips}
+                onChange={(event) => setRateTips(event.target.checked)}
+              />
+              Email me about a new 30-day high or low
+            </label>
+            <p className="muted">
+              Up to one email a month when the latest daily reference rate sets a new high or low
+              for your selected pair. You can create a target alert from the email.
+            </p>
+            {rateTips && (
+              <label>
+                Currency pair for high and low emails
+                <select
+                  value={rateTipPair}
+                  onChange={(event) => setRateTipPair(event.target.value)}
+                >
+                  {PAIRS.map((pair) => (
+                    <option key={pair}>{pair}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Currency summaries
               <select

@@ -232,6 +232,10 @@ export function friendly(e: unknown) {
   if (m.includes('email-already-in-use'))
     return 'This email already has an account. Try logging in.';
   if (m.includes('popup-closed')) return 'Sign-in window closed. Try again.';
+  if (m.includes('popup-blocked'))
+    return 'Your browser blocked the Google sign-in window. You can continue in this tab.';
+  if (m.includes('web-storage-unsupported'))
+    return 'Google sign-in needs browser storage. Open RateWatch in a regular browser tab or sign in with email.';
   if (m.includes('too-many-requests')) return 'Too many attempts. Please wait and try again.';
   return m;
 }

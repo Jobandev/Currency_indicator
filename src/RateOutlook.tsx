@@ -47,8 +47,8 @@ export default function RateOutlook({ pair }: { pair: string }) {
         <MoveUpRight aria-hidden="true" /> Short-term rate outlook
       </h2>
       <p>
-        See whether the recent {pair} trend points higher or lower over the next 1, 3 or 7 published
-        reference rates.
+        Could {pair} go up or down? Compare the outlook after the next 1, 3 or 7 rate updates.
+        Updates follow the provider’s schedule.
       </p>
       {!request || (current && !points) ? (
         <>
@@ -70,7 +70,7 @@ export default function RateOutlook({ pair }: { pair: string }) {
       ) : latest && rates.length >= minimumObservations ? (
         <>
           <p>
-            Latest observation{' '}
+            Latest reference rate{' '}
             <strong>
               {format(latest.rate, 6)} {quote}
             </strong>{' '}
@@ -82,23 +82,40 @@ export default function RateOutlook({ pair }: { pair: string }) {
               if (!forecast) return null;
               return (
                 <article key={horizon}>
-                  <h3>{horizon === 1 ? 'Next observation' : 'In ' + horizon + ' observations'}</h3>
-                  <strong>{forecast.direction ?? 'No clear direction'}</strong>
-                  {forecast.supported && (
+                  <h3>
+                    {horizon === 1 ? 'Next rate update' : 'After ' + horizon + ' rate updates'}
+                  </h3>
+                  <strong>
+                    {forecast.direction
+                      ? 'May go ' + forecast.direction.toLowerCase()
+                      : 'No clear direction'}
+                  </strong>
+                  {forecast.direction ? (
                     <p>
-                      Estimate {format(forecast.estimate, 6)} {quote}
-                      <br />
-                      Range {format(forecast.low, 6)}–{format(forecast.high, 6)} {quote}
+                      The estimated range is {format(forecast.low)}–{format(forecast.high)} {quote}.
+                    </p>
+                  ) : (
+                    <p>
+                      {forecast.supported
+                        ? 'The estimated range includes the latest rate, so either direction is possible.'
+                        : 'Recent rates give us too little evidence to say which way the rate might move.'}
                     </p>
                   )}
-                  <p>
-                    Backtest error {format(forecast.trendError * 100)}% vs{' '}
-                    {format(forecast.baselineError * 100)}% for an unchanged rate.
-                  </p>
-                  <p>
-                    Range covered {Math.round(forecast.coverage * 100)}% of {forecast.testSize}{' '}
-                    historical forecasts.
-                  </p>
+                  <details>
+                    <summary>Forecast details</summary>
+                    {forecast.supported && (
+                      <p>
+                        Estimate {format(forecast.estimate)} {quote}. Estimated range{' '}
+                        {format(forecast.low)}–{format(forecast.high)} {quote}.
+                      </p>
+                    )}
+                    <p>
+                      Average error in past tests was {format(forecast.trendError * 100)}% for this
+                      model and {format(forecast.baselineError * 100)}% when assuming the rate
+                      stayed the same. The estimated range included the actual rate in{' '}
+                      {Math.round(forecast.coverage * 100)}% of {forecast.testSize} tests.
+                    </p>
+                  </details>
                 </article>
               );
             })}
