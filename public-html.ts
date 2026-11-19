@@ -63,6 +63,9 @@ export function publicHtml(): Plugin {
                 path +
                 '" />' +
                 schema +
+                (process.env.VERCEL_ENV === 'preview'
+                  ? '<meta name="robots" content="noindex, nofollow" />'
+                  : '') +
                 '</head>',
             )
             .replace(/<noscript[\s\S]*?<\/noscript>/, '')
