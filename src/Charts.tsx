@@ -123,13 +123,15 @@ export default function Charts() {
   return (
     <>
       <PublicHeader />
-      <main id="main-content" tabIndex={-1} className="section chart-insights">
-        <h1>Exchange-rate history</h1>
-        <p>
-          Explore daily reference observations from{' '}
-          <a href="https://frankfurter.dev/">Frankfurter</a>. Rates may be missing on weekends or
-          holidays.
-        </p>
+      <main id="main-content" tabIndex={-1} className="section chart-insights history-page">
+        <header className="history-heading">
+          <h1>Exchange-rate history</h1>
+          <p>
+            Explore daily reference observations from{' '}
+            <a href="https://frankfurter.dev/">Frankfurter</a>. Rates may be missing on weekends or
+            holidays.
+          </p>
+        </header>
         <div className="chart-controls">
           <label>
             From
@@ -216,20 +218,25 @@ export default function Charts() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chart} margin={{ top: 10, right: 15, bottom: 8 }}>
                     <CartesianGrid vertical={false} strokeDasharray="3 4" />
-                    <XAxis dataKey="date" minTickGap={45} />
-                    <YAxis domain={['auto', 'auto']} />
+                    <XAxis
+                      dataKey="date"
+                      minTickGap={28}
+                      tickFormatter={(date: string) => date.slice(5)}
+                    />
+                    <YAxis width={52} domain={['auto', 'auto']} />
                     <Tooltip />
                     <Line
                       dataKey="rate"
                       name="Reference rate"
-                      stroke="#216449"
+                      stroke="var(--green)"
+                      strokeWidth={2.5}
                       dot={false}
                       isAnimationActive={false}
                     />
                     <Line
                       dataKey="movingAverage"
                       name="7-observation average"
-                      stroke="#765636"
+                      stroke="#875625"
                       strokeDasharray="5 4"
                       dot={false}
                       isAnimationActive={false}
@@ -237,6 +244,10 @@ export default function Charts() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              <ul className="chart-key" aria-label="Chart legend">
+                <li>Reference rate</li>
+                <li>7-observation average</li>
+              </ul>
               <p>
                 Volatility is the standard deviation of percentage changes between consecutive
                 available observations. The rolling average uses seven observations.

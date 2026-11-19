@@ -27,7 +27,7 @@ function Protected({ children }: { children: ReactNode }) {
     children
   ) : (
     <Navigate
-      to={'/login?next=' + encodeURIComponent(location.pathname + location.search)}
+      to={'/login?next=' + encodeURIComponent(location.pathname + location.search + location.hash)}
       replace
     />
   );

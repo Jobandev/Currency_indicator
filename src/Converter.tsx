@@ -89,7 +89,7 @@ export default function Converter({
           </select>
         </label>
       </div>
-      <div role="status" className="conversion-result">
+      <div role="status" className="conversion-result converter-output">
         {base === quote ? (
           <p>Choose two different currencies.</p>
         ) : rate === undefined ? (

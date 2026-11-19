@@ -145,11 +145,10 @@ export default function AlertEditor() {
       <Link className="back-link" to="/dashboard">
         ← Back to overview
       </Link>
-      <div className="page-heading">
+      <div className="page-heading overview-heading">
         <div>
-          <span className="eyebrow">A BETTER MOMENT IS WORTH WATCHING</span>
-          <h1>{id ? 'Make this target yours.' : 'What’s your perfect rate?'}</h1>
-          <p>Set your target. We’ll let you know when the reference rate gets there.</p>
+          <h1>{id ? 'Edit rate alert' : 'Create a rate alert'}</h1>
+          <p>Choose a currency pair, a target and the direction you want to watch.</p>
         </div>
       </div>
       <div className="editor-layout">

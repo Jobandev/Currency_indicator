@@ -3,7 +3,6 @@ import {
   ArrowUpRight,
   ArrowRight,
   Bell,
-  Check,
   Clock3,
   Globe2,
   Mail,
@@ -20,40 +19,30 @@ export default function Landing() {
     <>
       <PublicHeader />
       <main id="main-content" tabIndex={-1}>
-        <section className="hero">
+        <section className="hero rate-hero">
           <div className="hero-copy">
             <h1>
-              Your money.
+              Check the rate.
               <br />
-              <em>Your rate.</em>
+              <em>Set your target.</em>
             </h1>
-            <p>Choose your currency, set your target, and get notified when the rate is reached.</p>
+            <p>
+              Convert currencies, explore past rates, and get an alert when your target is reached.
+            </p>
             <div className="hero-actions">
-              <Link className="button" to="/register">
-                Create free alert <ArrowUpRight size={19} />
+              <Link className="button light" to="/charts">
+                Explore rate history <ArrowUpRight size={19} />
               </Link>
               <a className="text-link" href="#how-it-works">
                 See how it works <ArrowRight size={17} />
               </a>
-            </div>
-            <div className="hero-points">
-              <span>
-                <Check size={15} /> Completely free
-              </span>
-              <span>
-                <Check size={15} /> No card required
-              </span>
-              <span>
-                <Check size={15} /> Automatic monitoring
-              </span>
             </div>
           </div>
           <Converter />
         </section>
         <section className="rate-strip">
           <div>
-            <span className="eyebrow">A WORLD OF POSSIBILITIES</span>
-            <h3>Keep an eye on what matters.</h3>
+            <h2>Daily reference rates</h2>
           </div>
           {loading ? (
             <span className="skeleton">Loading reference rates…</span>
@@ -75,33 +64,28 @@ export default function Landing() {
           )}
         </section>
         <section id="how-it-works" className="section">
-          <span className="eyebrow">SIMPLE BY DESIGN</span>
-          <h2>A better rate, without the refresh button.</h2>
+          <h2>How rate alerts work</h2>
           <div className="three-grid">
             {[
               {
-                n: '01',
                 title: 'Pick your pair',
                 text: 'Sending money home or planning something big? Choose the currencies that matter to you.',
                 Icon: Globe2,
               },
               {
-                n: '02',
                 title: 'Set your moment',
                 text: 'Choose your target and whether you’re waiting for the rate to rise or fall.',
                 Icon: Bell,
               },
               {
-                n: '03',
                 title: 'We’ll keep watch',
                 text: 'Close the tab. Get on with your day. We’ll notify you when the monitored rate meets your target.',
                 Icon: Mail,
               },
-            ].map(({ n, title, text, Icon }) => (
-              <article className="step" key={n}>
+            ].map(({ title, text, Icon }) => (
+              <article className="step" key={title}>
                 <div className="split">
                   <Icon size={25} />
-                  <span>{n}</span>
                 </div>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -131,7 +115,7 @@ export default function Landing() {
               {
                 Icon: Clock3,
                 title: 'Watching while you’re away',
-                text: 'Server-side checks every 15 minutes, even with your laptop off.',
+                text: 'Once scheduled monitoring is enabled, checks run independently of your device.',
               },
               {
                 Icon: ShieldCheck,

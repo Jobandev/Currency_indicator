@@ -32,10 +32,21 @@ The unit tests, production build, and emulator suite passed on retry after the W
 
 ## Milestone B
 
-1. Review the consolidation diff and confirm the current remote Preview tip. Reconcile any later commits before publishing.
-2. Inspect the protected Vercel Preview deployment, Firebase Preview isolation, scoped variable names, Worker version, and actual remote Cron state using authenticated read-only access. The paused source config specifies an empty trigger list. Remote trigger state remains unknown.
-3. Investigate timeouts and protection responses while keeping Cron paused. If a dedicated Preview project is needed, obtain separate approval before creating it. Keep project-wide Automation Bypass off the project that hosts Production.
-4. After isolation and approval, verify the protected GET, then perform one controlled synthetic Preview POST with live delivery disabled. Review the Worker and backend results before any Cron activation decision.
-5. Validate saved plans, linked alerts, charts, mobile PWA, accessibility, SEO, and security in Preview. Obtain separate approval for synthetic Brevo and FCM delivery. Review hosting terms and legal requirements before commercial launch.
+GitHub's Preview tip was verified read-only at `8d1cbc5`. The five Milestone A changes were reviewed and committed locally as `9614ad4` on `ratewatch-consolidation`.
 
-No deploy, push, Cron activation, production Firebase operation, billing change, or live notification send occurred in Milestone A.
+The homepage now presents the converter alongside the primary heading, with dated rates immediately below. The converter makes the converted total, unit rate and source easier to distinguish. The dashboard places alerts before market tools and renders each alert as a readable card on narrow screens while keeping the table semantics and row actions. The alert editor emphasizes the current reference and condition selection. The charts page has responsive filters, compact statistics, and a visible series key alongside its observation tables. The original framework, API, Firebase integration, and scheduler remain in use.
+
+Fixed early registration navigation while profile setup and verification were pending. Protected alert links now carry their destination through sign-in. Selecting a dashboard alert tab clears the direct alert fragment so it stops overriding the selected tab.
+
+### Local verification
+
+- Mobile Chrome at 390 px exercised converter calculations, swap and identical-currency validation, real Frankfurter history, a period change, and the observations table. The tested routes fit the viewport without document-level horizontal scrolling.
+- Browser account creation, email verification, sign-in, rate alert creation, pause/resume, and a saved transfer plan with a linked alert used the local Firebase Auth and Firestore emulators. Reload confirmed the link had persisted. A signed-out visitor returned to the direct alert after sign-in and could switch tabs.
+- Desktop Chrome against the built app verified that the service worker controls the page and returns the offline fallback. Checked the web manifest and icons, keyboard skip link, prerendered heading, canonical URL, structured data, sitemap, and private-route noindex.
+- TypeScript, ESLint, the production build, and Git whitespace checks passed. Vitest reported 75 passed. The separate Firebase emulator integration test passed. Rollup reported two annotation warnings from Zod.
+
+### Preview readiness
+
+Local checks support an isolated Preview smoke test after configuration review. The deployed environment, Google sign-in, device-specific PWA installation, and live delivery remain unverified. Confirm the Vercel Preview Firebase project and protection settings, scoped configuration, the Worker version, and its actual remote trigger state. Keep Cron paused. Use a separately approved test for any synthetic monitor POST or live email or push check.
+
+No push, deployment, project creation, hosting change, Cron activation, billing change, or real notification occurred.

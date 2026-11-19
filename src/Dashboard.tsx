@@ -67,6 +67,7 @@ export default function Dashboard() {
   const [deleteError, setDeleteError] = useState('');
   const [marketRates, setMarketRates] = useState<Rate[]>([]);
   const [alertRates, setAlertRates] = useState<Rate[]>([]);
+  const clearingAlertLink = useRef(false);
   const allRates = [
     ...new Map(
       [...alertRates, ...rates, ...marketRates].map((r) => [r.currencyPair, r] as const),
@@ -117,7 +118,8 @@ export default function Dashboard() {
       });
   }, []);
   useEffect(() => {
-    if (dataLoading || !location.hash) return;
+    if (!location.hash) clearingAlertLink.current = false;
+    if (dataLoading || !location.hash || clearingAlertLink.current) return;
     const target = location.hash.slice(1);
     if (target.startsWith('alert-')) {
       const alert = alerts.find((entry) => 'alert-' + entry.id === target);
@@ -133,6 +135,13 @@ export default function Dashboard() {
   }, [alerts, dataLoading, location.hash, tab]);
   const active = alerts.filter((a) => a.status !== 'completed'),
     completed = alerts.filter((a) => a.status === 'completed');
+  function selectAlertTab(next: 'active' | 'completed') {
+    if (location.hash.startsWith('#alert-')) {
+      clearingAlertLink.current = true;
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true });
+    }
+    setTab(next);
+  }
   return (
     <Shell>
       {deleteAlert && (
@@ -184,14 +193,10 @@ export default function Dashboard() {
           </button>
         </div>
       )}
-      <div className="page-heading">
+      <div className="page-heading overview-heading">
         <div>
-          <span className="eyebrow">YOUR MONEY. YOUR MOMENT.</span>
-          <h1>
-            Hello, {user?.displayName?.split(' ')[0] || 'there'}
-            <span className="greeting-dot">.</span>
-          </h1>
-          <p>Good things come to those who watch. Here’s where things stand.</p>
+          <h1>Rate dashboard</h1>
+          <p>Manage your targets and compare the latest reference rates.</p>
         </div>
         <Link className="button" to="/alerts/new">
           <Plus size={18} /> Create an alert
@@ -209,7 +214,6 @@ export default function Dashboard() {
               <small> / 3</small>
             </strong>
           </div>
-          <span className="pill">Free plan</span>
         </article>
         <article>
           <span className="stat-icon">
@@ -219,7 +223,6 @@ export default function Dashboard() {
             <span>Targets reached</span>
             <strong>{dataLoading ? '\u2014' : completed.length}</strong>
           </div>
-          <small className="stat-detail">Better moments, delivered</small>
         </article>
         <article>
           <span className="stat-icon">
@@ -229,13 +232,7 @@ export default function Dashboard() {
             <span>Monitoring</span>
             <strong>Scheduled</strong>
           </div>
-          <small className="stat-detail">Runs on the server</small>
         </article>
-      </div>
-      <WorldRates onSelect={setPair} onRates={setMarketRates} />
-      <div className="chart-calculator">
-        <RateChart pair={pair} setPair={setPair} rates={allRates} />
-        <Calculator rates={rates} />
       </div>
       <section id="alerts" className="card alerts-panel">
         <div className="section-heading">
@@ -243,19 +240,23 @@ export default function Dashboard() {
             <h2>
               Your rate alerts <span className="count">{alerts.length}</span>
             </h2>
-            <p>Set it, forget it. We’ll keep an eye out.</p>
           </div>
           <Link to="/alerts/new" className="text-link">
             New alert <Plus size={16} />
           </Link>
         </div>
         <div className="tabs">
-          <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>
+          <button
+            className={tab === 'active' ? 'active' : ''}
+            aria-pressed={tab === 'active'}
+            onClick={() => selectAlertTab('active')}
+          >
             Active <span>{active.length}</span>
           </button>
           <button
             className={tab === 'completed' ? 'active' : ''}
-            onClick={() => setTab('completed')}
+            aria-pressed={tab === 'completed'}
+            onClick={() => selectAlertTab('completed')}
           >
             Completed <span>{completed.length}</span>
           </button>
@@ -275,11 +276,7 @@ export default function Dashboard() {
             <span className="empty-icon">
               <Bell size={23} />
             </span>
-            <h3>
-              {tab === 'active'
-                ? 'Your next good moment starts here.'
-                : 'Good moments are on their way.'}
-            </h3>
+            <h3>{tab === 'active' ? 'No active alerts' : 'No completed alerts'}</h3>
             <p>
               {tab === 'active'
                 ? 'Choose a currency pair and a target. We’ll take it from there.'
@@ -294,31 +291,37 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Currency pair</th>
-                  <th>Your target</th>
-                  <th>Reference rate</th>
-                  <th>Status</th>
-                  <th>
+            <table role="table">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col">Currency pair</th>
+                  <th scope="col">Your target</th>
+                  <th scope="col">Reference rate</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {(tab === 'active' ? active : completed).map((a) => (
-                  <tr key={a.id} id={'alert-' + a.id}>
-                    <td>
+                  <tr role="row" key={a.id} id={'alert-' + a.id}>
+                    <td role="cell" className="alert-pair">
                       <Currency pair={a.pair} />
                     </td>
-                    <td>
+                    <td role="cell">
+                      <span className="alert-mobile-label" aria-hidden="true">
+                        Target
+                      </span>
                       <strong>
                         {a.condition === 'gte' ? '\u2265' : '\u2264'} {format(a.targetRate)}
                       </strong>
                       <small>{a.condition === 'gte' ? 'At or above' : 'At or below'}</small>
                     </td>
-                    <td>
+                    <td role="cell">
+                      <span className="alert-mobile-label" aria-hidden="true">
+                        Reference rate
+                      </span>
                       {a.rateSource !== 'intraday' &&
                       allRates.find((r) => r.currencyPair === a.pair)
                         ? format(allRates.find((r) => r.currencyPair === a.pair)!.rate)
@@ -347,7 +350,7 @@ export default function Dashboard() {
                       )}
                       {a.triggeredRate && <small>Triggered at {format(a.triggeredRate)}</small>}
                     </td>
-                    <td>
+                    <td role="cell" className="alert-status">
                       <span className={'status ' + a.status}>
                         <span className="green-dot" />
                         {a.status === 'active'
@@ -359,7 +362,7 @@ export default function Dashboard() {
                               : 'Completed'}
                       </span>
                     </td>
-                    <td>
+                    <td role="cell" className="alert-actions">
                       <div className="row-actions">
                         {(a.status === 'active' || a.status === 'paused') && (
                           <button
@@ -407,6 +410,11 @@ export default function Dashboard() {
         )}
         <SecurityNote />
       </section>
+      <WorldRates onSelect={setPair} onRates={setMarketRates} />
+      <div className="chart-calculator">
+        <RateChart pair={pair} setPair={setPair} rates={allRates} />
+        <Calculator rates={rates} />
+      </div>
       <section className="card chart-card" aria-labelledby="favorites-heading">
         <h2 id="favorites-heading">Favourite pairs</h2>
         <p>Save pairs you want to find quickly on this device.</p>
@@ -638,7 +646,7 @@ function RateChart({
   return (
     <section className="card chart-card">
       <div className="section-heading">
-        <h2>A little perspective</h2>
+        <h2>30-day rate history</h2>
         <label className="sr-only" htmlFor="chart-pair">
           Chart currency pair
         </label>

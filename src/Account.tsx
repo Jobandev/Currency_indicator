@@ -20,7 +20,9 @@ import { Footer, friendly, PublicHeader, Session, Shell, Toast } from './ui';
 export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
   const [params] = useSearchParams();
   const next = params.get('next') || '';
-  const destination = /^\/alerts\/(?:new|[\w-]+\/edit)(?:\?|$)/.test(next) ? next : '/dashboard';
+  const destination = /^\/(?:dashboard|settings|alerts\/(?:new|[\w-]+\/edit))(?:[?#]|$)/.test(next)
+    ? next
+    : '/dashboard';
   const { user } = useContext(Session),
     toast = useContext(Toast),
     navigate = useNavigate(),
@@ -81,7 +83,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
       setBusy(false);
     }
   }
-  if (user && mode !== 'reset') return <Navigate to={destination} />;
+  if (user && mode !== 'reset' && !busy && !error) return <Navigate to={destination} />;
   return (
     <>
       <PublicHeader />

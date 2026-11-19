@@ -17,7 +17,7 @@ export const publicPages = {
   '/': [
     'Currency converter and exchange-rate alerts',
     'Convert currencies, check dated exchange rates and set a free rate alert.',
-    'Your money. Your rate.',
+    'Check the rate. Set your target.',
   ],
   '/charts': [
     'Historical exchange rates',
