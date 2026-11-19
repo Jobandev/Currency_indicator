@@ -66,8 +66,11 @@ export async function enqueue(id: string, rate: Rate) {
     });
   });
 }
+function deliveryPaused() {
+  return process.env.VERCEL_ENV === 'preview' || process.env.NOTIFICATION_DELIVERY_DISABLED === 'true';
+}
 export async function deliver(id: string, sender = sendEmail, now = Date.now()) {
-  if (process.env.VERCEL_ENV === 'preview') return;
+  if (deliveryPaused()) return;
   const ref = db.collection('notificationLogs').doc(id),
     token = randomUUID();
   const job = await db.runTransaction(async (t) => {
@@ -244,7 +247,7 @@ export async function monitor() {
       log('digest_queue_error');
     }
     let processed = 0;
-    if (process.env.VERCEL_ENV !== 'preview') {
+    if (!deliveryPaused()) {
       const jobs = await db
         .collection('notificationLogs')
         .where('status', 'in', ['pending', 'sending'])

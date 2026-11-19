@@ -574,6 +574,39 @@ it('requires an enabled device to save a push alert and holds it active after op
   expect(records.get('alerts/' + id).status).toBe('active');
 });
 
+it.each(['email', 'push'] as const)(
+  'keeps Production Send now %s pending when notification delivery is disabled',
+  async (channel) => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('NOTIFICATION_DELIVERY_DISABLED', 'true');
+    vi.stubEnv('EMAIL_PROVIDER', 'brevo');
+    vi.stubEnv('BREVO_API_KEY', 'test-key');
+    vi.stubEnv('BREVO_SENDER_EMAIL', 'sender@example.test');
+    const email = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ messageId: 'mock-brevo-message' }),
+    );
+    mocks.sendPush.mockResolvedValue({ successCount: 1, responses: [{ success: true }] });
+    await request(app)
+      .put('/api/push-device')
+      .set('Authorization', 'Bearer alice')
+      .send({ token: 'test-registration-token-123456789', enabled: true })
+      .expect(200);
+    mocks.latest.mockResolvedValue([{ ...rate(), rate: 54 }]);
+
+    const { body } = await request(app)
+      .post('/api/alerts')
+      .set('Authorization', 'Bearer alice')
+      .send({ ...input, immediate: true, channel })
+      .expect(201);
+    const job = 'notificationLogs/alert-' + body.id + '-1';
+    expect(records.get(job)).toMatchObject({ status: 'pending', attempts: 0, leaseUntil: 0 });
+    await expect(monitor()).resolves.toEqual({ processed: 0 });
+    expect(records.get(job)).toMatchObject({ status: 'pending', attempts: 0, leaseUntil: 0 });
+    expect(email).not.toHaveBeenCalled();
+    expect(mocks.sendPush).not.toHaveBeenCalled();
+  },
+);
+
 it('queues Preview push without sending and completes through mocked FCM outside Preview', async () => {
   const tokens = ['valid-registration-token-example', 'expired-registration-token-example'];
   for (const token of tokens) {
