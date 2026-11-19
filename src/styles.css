@@ -62,6 +62,10 @@ input:disabled {
   background: #f3f5f2;
   color: #67726c;
 }
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible {
@@ -92,7 +96,7 @@ h3 {
 }
 p {
   line-height: 1.75;
-  color: #6d7671;
+  color: var(--muted);
 }
 small {
   font-size: 11px;
@@ -155,7 +159,7 @@ svg {
   font-size: 10px;
   letter-spacing: 0.16em;
   font-weight: 650;
-  color: #6a7565;
+  color: var(--muted);
   display: inline-flex;
   gap: 8px;
   align-items: center;
@@ -207,7 +211,7 @@ svg {
 }
 .public-header nav {
   font-size: 12px;
-  color: #69776f;
+  color: var(--muted);
 }
 .hero {
   max-width: 1280px;
@@ -387,7 +391,7 @@ svg {
   display: inline-flex;
   background: #f0f4eb;
   border: 1px solid #e6ecdd;
-  color: #68765b;
+  color: var(--muted);
   align-items: center;
   padding: 4px 8px;
   border-radius: 5px;
@@ -576,7 +580,7 @@ svg {
   color: white;
 }
 .cta .eyebrow {
-  color: #6e756a;
+  color: var(--mint);
 }
 .cta h2 {
   font-size: 36px;
@@ -657,7 +661,7 @@ form label {
 }
 form label small {
   font-weight: 400;
-  color: #67735e;
+  color: var(--muted);
 }
 form .button {
   margin-top: 10px;
@@ -1003,7 +1007,7 @@ form .button {
   letter-spacing: 0.09em;
   padding: 4px 6px;
   background: #edf1e9;
-  color: #67745b;
+  color: var(--muted);
   border-radius: 3px;
 }
 .subtle {
@@ -1125,7 +1129,7 @@ form .button {
 .chart-period {
   margin-left: auto;
   font-size: 10px;
-  color: #6b7963;
+  color: var(--muted);
   background: #f1f5eb;
   padding: 5px 8px;
   border-radius: 4px;
@@ -1380,7 +1384,7 @@ td small {
   padding: 5px 7px;
   border-radius: 4px;
   background: #f0f5e8;
-  color: #5d7b48;
+  color: #49633c;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1391,7 +1395,7 @@ td small {
 }
 .status.processing {
   background: #faf1de;
-  color: #8e6e39;
+  color: #705124;
 }
 .notification-section {
   margin-top: 28px;
@@ -1486,7 +1490,7 @@ td small {
 }
 .back-link {
   font-size: 11px;
-  color: #677959;
+  color: var(--muted);
   display: block;
   margin-bottom: 25px;
 }
@@ -2663,6 +2667,14 @@ legend {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+.chart-insights section li a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+.history-page details > summary {
+  min-height: 24px;
 }
 
 /* Rate tools share a strong frame, clear labels and aligned numerical values. */

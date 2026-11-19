@@ -403,42 +403,62 @@ export function Legal() {
         {kind !== 'disclaimer' && (
           <div className="info">
             <strong>DRAFT — for review before public launch.</strong>
-            <p>
-              Not legally reviewed. The operator must add their legal identity, contact details,
-              jurisdiction, retention periods, and applicable user rights.
-            </p>
+            {kind === 'privacy' ? (
+              <p>
+                Before publishing, confirm the operator’s legal name and privacy contact, effective
+                date, retention and backup practices, processing locations, and any applicable
+                privacy rights and request procedures.
+              </p>
+            ) : (
+              <p>
+                Before publishing, confirm the operator’s legal name and support contact, effective
+                date, eligibility, governing law, dispute procedures, and applicable consumer terms
+                for the markets served.
+              </p>
+            )}
           </div>
         )}
         {kind === 'privacy' ? (
           <>
             <h2>Information we use</h2>
             <p>
-              RateWatch stores your account identifier, name, email address, verification state,
-              alert preferences, currency targets, and notification records. If you enable push,
-              RateWatch stores a device registration token. Firebase handles authentication and push
-              delivery. Cloud Firestore stores application data. Depending on configuration, Brevo,
-              Gmail or Resend delivers email. Frankfurter supplies daily reference rates and
-              exchangerate.dev supplies delayed intraday observations.
+              RateWatch stores your account identifier, name, email address and verification status.
+              If you create alerts or save transfer plans, RateWatch stores the currency pairs,
+              targets, planned amounts, any linked alerts, and alert and notification history.
+              RateWatch also stores your notification preferences and a registration token for each
+              device you enable for push.
             </p>
             <h2>Purpose and sharing</h2>
             <p>
-              We use this data to operate your account, monitor targets, send requested
-              notifications, and investigate service failures. Service providers process data for
-              these functions. We do not execute transfers or collect payment information.
+              We use this information to operate your account, save your plans, monitor your
+              targets, send notifications you request, and investigate delivery and service
+              failures. Vercel hosts the site and API, and a Cloudflare Worker calls the monitoring
+              endpoint. Firebase Authentication handles sign-in, Cloud Firestore stores application
+              records, and Firebase Cloud Messaging delivers push. Brevo is the planned provider for
+              alert and summary email. Frankfurter supplies daily reference rates, and
+              exchangerate.dev supplies delayed observations where enabled.
+            </p>
+            <p>
+              RateWatch does not execute transfers or collect payment details. If you follow a link
+              to a transfer provider, its terms and privacy policy apply on its site.
             </p>
             <h2>Browser storage</h2>
             <p>
               RateWatch uses browser storage to keep you signed in, remember your favourite pairs,
               and record push preferences on this device. The service worker stores an offline
-              fallback page. Optional summaries can be turned off in Settings or from the
-              unsubscribe link in each summary.
+              fallback page.
             </p>
-            <h2>Retention and deletion</h2>
+            <h2>Notification controls and deletion</h2>
             <p>
-              Delete your account and application records in Settings. Sent emails and provider
-              security logs may remain subject to provider retention policies. Before launch, the
-              operator must document backup deletion, cross-border processing, a support contact,
-              and legal rights for markets served.
+              You can change email settings, turn off summaries in Settings or through each
+              summary’s unsubscribe link, and disable push on each registered device. You can delete
+              alerts and saved plans individually.
+            </p>
+            <p>
+              Account deletion in Settings requires a recent sign-in. It removes your RateWatch
+              profile, sign-in account, alerts, saved plans, notification records and device
+              registrations. Emails already delivered remain in recipients’ inboxes. Application
+              deletion does not remove provider logs or backups directly.
             </p>
           </>
         ) : kind === 'terms' ? (
@@ -451,9 +471,11 @@ export function Legal() {
             </p>
             <h2>Availability and notifications</h2>
             <p>
-              Provider outages, source update schedules, email failures, and spam filtering can
-              delay or prevent alerts. Email provider acceptance does not establish inbox delivery.
-              Availability and timing are not guaranteed.
+              Alerts compare your target with observations from the selected source. A rate between
+              observations may pass your target without triggering an alert. Provider outages,
+              source update schedules, delivery failures, spam filtering and device permissions can
+              delay or prevent notifications. An email provider’s acceptance does not establish
+              inbox delivery.
             </p>
             <h2>External transfer providers</h2>
             <p>
@@ -462,10 +484,16 @@ export function Legal() {
             </p>
             <h2>Service scope</h2>
             <p>
-              RateWatch supplies reference information, not transfers or financial advice. Payments
-              and WhatsApp are not enabled. Future paid services require separate terms. Liability,
-              governing law, dispute procedures, operator identity, and consumer protections require
-              legal review before launch.
+              RateWatch supplies reference information and estimates before any fees or spreads
+              charged by your transfer provider. Confirm its final quote, fees and delivery terms
+              before sending money. RateWatch does not hold funds, execute transfers or provide
+              financial advice.
+            </p>
+            <h2>Closing your account</h2>
+            <p>
+              You can stop using RateWatch, delete saved plans and alerts individually, or delete
+              your account from Settings. The Privacy policy describes what account deletion
+              removes.
             </p>
           </>
         ) : (

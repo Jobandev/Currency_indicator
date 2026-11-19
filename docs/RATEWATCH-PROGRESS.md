@@ -116,9 +116,18 @@ No remote settings, deployments, Cron triggers, billing, production data, or not
 
 ### Final launch checklist
 
-- [ ] Correct the verified mobile text contrast issues and rerun the accessibility checks.
+- [x] Correct the verified mobile text contrast issues and rerun the accessibility checks.
 - [ ] Replace draft privacy and terms copy with approved operator details, retention and rights disclosures, and jurisdiction information. Confirm the intended launch qualifies for Vercel Hobby.
 - [ ] Obtain separate send approval. Verify one Brevo alert in an approved inbox, including provider acceptance, sender identity, link navigation, and duplicate suppression. Verify one FCM alert on each approved test platform with a real install, app closed, and no delivery after device opt-out. Include Android Chrome and an installed iOS Safari PWA.
 - [ ] Obtain approval for the Production scheduler credential and Brevo and FCM settings. The intraday provider key is needed only if intraday observations are offered at launch.
 - [ ] Review and approve the Production release. Confirm public SEO, authentication, and security headers against the approved deployment before opening access.
 - [ ] Keep Cron paused until an activation decision is approved. The Preview one-shot passed, but hosted Cron cadence and Free CPU usage still require observation during an approved activation. Production Cron requires the approved endpoint and its own bearer credential.
+
+### Local contrast fixes and legal drafts
+
+- Reproduced 30 failing text instances across the five mobile screens. The affected styles were conversion details, homepage step and feature copy, rate-source links and chart text, dark-section labels, alert editor navigation and help text, dashboard status badges and supporting copy, and planner instructions and saved-plan details. Desktop checks also caught shared header links, dashboard chips, and legal text.
+- Darkened the existing muted foregrounds and status labels, used the existing mint color for text on the dark call to action, and set an explicit placeholder foreground. Kept the existing surfaces and hierarchy. Chart disclosure controls and provider links now meet the minimum 24 CSS pixel target size flagged by axe.
+- WCAG-tagged axe checks reported zero violations across 13 tested mobile and desktop views and states. Browser-computed samples reached at least 5.09:1 for normal text and 5.23:1 for large text, against required minima of 4.5:1 and 3:1. Representative pairs include the standard alert status at 6.04:1, the queued status at 6.47:1, and the conversion total at 12.69:1. [WCAG 2.2 contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
+- The local regression suite passed 78 tests, plus one separate Firebase emulator integration test. TypeScript, ESLint, the production build, and Git whitespace checks passed.
+- Expanded the privacy draft with saved-plan and device data, provider roles, notification controls, and the account deletion flow. Clarified the terms for observed rates, delivery limitations, provider quotes, and account closure. Operator identity and contacts, effective dates, actual retention and backup practices, applicable privacy rights, processing locations, eligibility, governing law, dispute procedures, and consumer terms still require confirmation.
+- The contrast and legal copy changes are local. No deployment, Cron change, live delivery, billing change, or Production operation was made.
