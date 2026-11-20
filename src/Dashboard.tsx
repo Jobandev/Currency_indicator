@@ -175,6 +175,16 @@ export default function Dashboard() {
                   : 'Check your notifications.'}{' '}
               <a href="#notifications">View delivery status</a>
             </p>
+            {testChannel !== 'push' && (
+              <p>
+                If your email is in Spam or Junk, open it and choose <strong>Not spam</strong>.
+              </p>
+            )}
+            <Link
+              to={'/alerts/new?pair=' + encodeURIComponent(location.state?.testPair || 'NZD/INR')}
+            >
+              Set your target rate
+            </Link>
           </div>
           <button
             type="button"

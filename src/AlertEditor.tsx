@@ -31,6 +31,14 @@ export default function AlertEditor() {
     toast = useContext(Toast),
     [rates, setRates] = useState<Rate[]>([]),
     [rateLoading, setRateLoading] = useState(true);
+  const testSetupKey = 'ratewatch:test-setup:' + user?.uid;
+  const [showTestSetup] = useState(() => {
+    try {
+      return localStorage.getItem(testSetupKey) !== 'requested';
+    } catch {
+      return true;
+    }
+  });
   const [testAlert, setTestAlert] = useState(false);
   const usesPush = channel !== 'email';
   const [pair, setPair] = useState<string>(requestedPair.success ? requestedPair.data : 'NZD/INR'),
@@ -114,7 +122,16 @@ export default function AlertEditor() {
         }),
       });
       toast('Alert saved. We’ll keep watch for you.');
-      navigate('/dashboard', { state: { testAlertChannel: testAlert ? channel : null } });
+      if (testAlert) {
+        try {
+          localStorage.setItem(testSetupKey, 'requested');
+        } catch {
+          // Test alerts also work when browser storage is unavailable.
+        }
+      }
+      navigate('/dashboard', {
+        state: testAlert ? { testAlertChannel: channel, testPair: pair } : null,
+      });
     } catch (e) {
       setError(friendly(e));
     } finally {
@@ -244,6 +261,16 @@ export default function AlertEditor() {
                 1 {pair.split('/')[0]} = your target in {pair.split('/')[1]}
               </small>
             </label>
+            {!id && showTestSetup && (
+              <div className="info">
+                <strong>First-time alert setup</strong>
+                <ol>
+                  <li>Use the current rate below, then send a test by email and push.</li>
+                  <li>If the email lands in Spam or Junk, open it and select Not spam.</li>
+                  <li>Create a new alert with the target rate you want to watch.</li>
+                </ol>
+              </div>
+            )}
             {!id && (
               <button
                 type="button"
