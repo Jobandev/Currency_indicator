@@ -13,6 +13,7 @@ import { api } from './api';
 import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
 export default function AlertEditor() {
   const [params] = useSearchParams();
+  const requestedImmediate = params.get('notify') === 'now';
   const requestedPair = pairSchema.safeParse(params.get('pair'));
   const [selectedChannel, setChannel] = useState<'email' | 'push' | 'both'>();
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -59,7 +60,7 @@ export default function AlertEditor() {
   const [pair, setPair] = useState<string>(requestedPair.success ? requestedPair.data : 'NZD/INR'),
     [target, setTarget] = useState(''),
     [condition, setCondition] = useState<'gte' | 'lte'>('gte'),
-    [immediate, setImmediate] = useState(false),
+    [immediate, setImmediate] = useState(requestedImmediate),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [loaded, setLoaded] = useState(!id);
@@ -356,6 +357,13 @@ export default function AlertEditor() {
                 </label>
               </div>
             </fieldset>
+            {requestedImmediate && rate && !satisfied && (
+              <p className="info">
+                The latest rate is {format(rate.rate)}. It needs to be{' '}
+                {condition === 'gte' ? 'at or above' : 'at or below'} {format(Number(target))} to
+                send this alert now.
+              </p>
+            )}
             {satisfied && (
               <div className="info">
                 <strong>Your target is already satisfied.</strong>
@@ -394,9 +402,11 @@ export default function AlertEditor() {
                 ? 'Saving...'
                 : testAlert
                   ? 'Send test alert'
-                  : id
-                    ? 'Save changes'
-                    : 'Start watching my rate'}
+                  : satisfied && immediate
+                    ? 'Save and send now'
+                    : id
+                      ? 'Save changes'
+                      : 'Start watching my rate'}
               <Bell size={17} />
             </button>
           </form>

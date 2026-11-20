@@ -40,6 +40,11 @@ export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?:
   )
     throw new HttpError(503, 'Fresh reference rates temporarily unavailable');
   const reached = matches(rate.rate, input.targetRate, input.condition);
+  if (input.immediate && !reached)
+    throw new HttpError(
+      409,
+      'The latest rate no longer meets your target. Refresh the rate and try again.',
+    );
   if (reached && !input.immediate && !input.repeat)
     throw new HttpError(
       409,

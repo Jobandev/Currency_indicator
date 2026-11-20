@@ -355,7 +355,7 @@ export default function Dashboard() {
                         <span className="green-dot" />
                         {a.status === 'active'
                           ? a.repeat && a.waitingForReset
-                            ? 'Watching for a new crossing'
+                            ? 'Waiting for the rate to reset'
                             : 'Watching'
                           : a.status === 'processing'
                             ? 'Notification queued'
@@ -363,7 +363,17 @@ export default function Dashboard() {
                               ? 'Paused'
                               : 'Completed'}
                       </span>
-                      {a.repeat && a.status === 'active' && <small>Repeating push alert</small>}
+                      {a.repeat && a.status === 'active' && a.waitingForReset && (
+                        <>
+                          <small>
+                            The rate must go {a.condition === 'gte' ? 'below' : 'above'}{' '}
+                            {format(a.targetRate)} before another automatic notification.
+                          </small>
+                          <Link to={'/alerts/' + a.id + '/edit?notify=now'}>
+                            Send notification now
+                          </Link>
+                        </>
+                      )}
                     </td>
                     <td role="cell" className="alert-actions">
                       <div className="row-actions">
