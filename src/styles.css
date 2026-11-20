@@ -1515,10 +1515,7 @@ td small {
   margin-bottom: 25px;
 }
 .editor-layout {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 35px;
-  max-width: 1000px;
+  max-width: 650px;
 }
 .editor {
   padding: 28px;
@@ -1796,10 +1793,6 @@ legend {
   .header-status {
     display: none;
   }
-  .editor-layout {
-    grid-template-columns: 1.5fr 1fr;
-    gap: 15px;
-  }
   .reference-box {
     flex-wrap: wrap;
   }
@@ -1983,9 +1976,6 @@ legend {
   }
   .badge {
     display: none;
-  }
-  .editor-layout {
-    grid-template-columns: 1fr;
   }
   .editor-aside {
     padding-top: 0;
@@ -2280,9 +2270,6 @@ legend {
   .verification span,
   .verification button {
     font-size: 10px;
-  }
-  .editor-layout {
-    gap: 20px;
   }
   .condition-options {
     gap: 9px;
