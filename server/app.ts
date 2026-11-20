@@ -338,7 +338,7 @@ async function write(req: express.Request, res: express.Response) {
       'Enable push on at least one device in notification settings before saving a push alert.',
     );
   }
-  const rateSource = intradayConfigured() ? 'intraday' : input.rateSource;
+  const rateSource = intradayConfigured() ? 'intraday' : (input.rateSource ?? 'daily');
   const rates = await getAlertRates([input.pair], rateSource),
     rate = rates.find((r) => r.currencyPair === input.pair);
   if (!rate) throw new HttpError(503, 'Rate unavailable');
