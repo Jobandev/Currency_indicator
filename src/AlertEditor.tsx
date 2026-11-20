@@ -24,6 +24,7 @@ export default function AlertEditor() {
   const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
   const defaultChannel = emailEnabled ? 'both' : 'push';
   const channel = selectedChannel ?? defaultChannel;
+  const testDelivery = channel === 'both' ? 'email and push' : channel;
   const { user } = useContext(Session);
   const { id } = useParams(),
     navigate = useNavigate(),
@@ -333,7 +334,7 @@ export default function AlertEditor() {
               {busy
                 ? 'Saving...'
                 : testAlert
-                  ? 'Send test alert'
+                  ? 'Send test by ' + testDelivery
                   : satisfied && immediate
                     ? 'Save and send now'
                     : id

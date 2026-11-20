@@ -167,7 +167,14 @@ export default function Dashboard() {
             <strong>
               Test alert requested by {testChannel === 'both' ? 'email and push' : testChannel}.
             </strong>
-            <p>Check Recent notifications below for each delivery result.</p>
+            <p>
+              {testChannel === 'both'
+                ? 'Check your inbox and this device?s notifications.'
+                : testChannel === 'email'
+                  ? 'Check your inbox.'
+                  : 'Check this device?s notifications.'}{' '}
+              <a href="#notifications">View delivery status</a>
+            </p>
           </div>
           <button
             type="button"
