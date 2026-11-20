@@ -169,10 +169,10 @@ export default function Dashboard() {
             </strong>
             <p>
               {testChannel === 'both'
-                ? 'Check your inbox and this device?s notifications.'
+                ? 'Check your inbox and your notifications.'
                 : testChannel === 'email'
                   ? 'Check your inbox.'
-                  : 'Check this device?s notifications.'}{' '}
+                  : 'Check your notifications.'}{' '}
               <a href="#notifications">View delivery status</a>
             </p>
           </div>
