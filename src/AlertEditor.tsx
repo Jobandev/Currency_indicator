@@ -37,7 +37,7 @@ export default function AlertEditor() {
     [rates, setRates] = useState<Rate[]>([]),
     [rateLoading, setRateLoading] = useState(true);
   const guideKey = 'ratewatch:first-alert-guide:' + user?.uid;
-  const [repeat, setRepeat] = useState(!id);
+  const [repeat, setRepeat] = useState(false);
   const [guideHidden, setGuideHidden] = useState(() => {
     try {
       return localStorage.getItem(guideKey) === 'dismissed';
@@ -232,8 +232,9 @@ export default function AlertEditor() {
                     checked={repeat}
                     onChange={(event) => setRepeat(event.target.checked)}
                   />
-                  Keep watching after a notification
+                  Repeat after the rate crosses the target again
                 </label>
+                {!repeat && <p>This alert moves to Completed after delivery.</p>}
                 {repeat && (
                   <p>
                     Get notified again when the rate moves away from your target and then reaches it
