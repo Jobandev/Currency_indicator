@@ -90,12 +90,14 @@ export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?:
   });
   return ref.id;
 }
-export async function deleteAlert(uid: string, id: string) {
+export async function deleteAlert(uid: string, id: string, completedOnly = false) {
   const ref = db.collection('alerts').doc(id),
     u = db.collection('users').doc(uid);
   await db.runTransaction(async (t) => {
     const a = await t.get(ref);
     if (!a.exists || a.data()!.userId !== uid) throw new HttpError(404, 'Alert not found');
+    if (completedOnly && a.data()!.status !== 'completed')
+      throw new HttpError(409, 'Alert is no longer completed');
     await cancelQueuedNotification(t, a);
     t.update(u, { updatedAt: Date.now() });
     t.delete(ref);

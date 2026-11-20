@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
@@ -12,7 +12,6 @@ export default function InstallAction() {
       matchMedia('(display-mode: standalone)').matches ||
       Boolean((navigator as Navigator & { standalone?: boolean }).standalone),
   );
-  const [update, setUpdate] = useState<ServiceWorker>();
   const ios =
     /iPhone|iPad|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -26,38 +25,14 @@ export default function InstallAction() {
       setInstalled(true);
       setPrompt(undefined);
     };
-    let active = true;
-    let registration: ServiceWorkerRegistration | undefined;
-    let installing: ServiceWorker | null | undefined;
-    const checkWaiting = () => {
-      if (active && registration?.waiting && navigator.serviceWorker.controller)
-        setUpdate(registration.waiting);
-    };
-    const watchInstall = () => {
-      installing?.removeEventListener('statechange', checkWaiting);
-      installing = registration?.installing;
-      installing?.addEventListener('statechange', checkWaiting);
-    };
     window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
     if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((worker) => {
-          if (!active) return;
-          registration = worker;
-          checkWaiting();
-          watchInstall();
-          worker.addEventListener('updatefound', watchInstall);
-        })
-        .catch(() => {});
+      void navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
     return () => {
-      active = false;
       window.removeEventListener('beforeinstallprompt', onPrompt);
       window.removeEventListener('appinstalled', onInstalled);
-      registration?.removeEventListener('updatefound', watchInstall);
-      installing?.removeEventListener('statechange', checkWaiting);
     };
   }, []);
 
@@ -81,19 +56,6 @@ export default function InstallAction() {
         ) : ios ? (
           <p>Open in Safari → Share → Add to Home Screen → Add.</p>
         ) : null)}
-      {update && (
-        <button
-          className="button secondary"
-          onClick={() => {
-            navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), {
-              once: true,
-            });
-            update.postMessage('ACTIVATE_UPDATE');
-          }}
-        >
-          Update RateWatch
-        </button>
-      )}
     </div>
   );
 }

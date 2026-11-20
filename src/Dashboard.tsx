@@ -67,6 +67,7 @@ export default function Dashboard() {
   const [deleteAlert, setDeleteAlert] = useState<Alert | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [clearingCompleted, setClearingCompleted] = useState(false);
   const [marketRates, setMarketRates] = useState<Rate[]>([]);
   const clearingAlertLink = useRef(false);
   const currentRates = [
@@ -131,6 +132,31 @@ export default function Dashboard() {
     }
     setTab(next);
   }
+
+  async function clearCompletedAlerts() {
+    if (!window.confirm('Permanently delete all completed alerts?')) return;
+    setClearingCompleted(true);
+    const deleted = new Set<string>();
+    for (const alert of completed) {
+      try {
+        await api('/alerts/' + encodeURIComponent(alert.id) + '?status=completed', {
+          method: 'DELETE',
+        });
+        deleted.add(alert.id);
+      } catch {
+        // Continue clearing the remaining alerts and refresh the list if any failed.
+      }
+    }
+    setAlerts((current) => current.filter((alert) => !deleted.has(alert.id)));
+    setClearingCompleted(false);
+    if (deleted.size === completed.length) {
+      toast('Completed alerts cleared.');
+    } else {
+      toast('Some completed alerts could not be cleared.');
+      reload();
+    }
+  }
+
   return (
     <Shell>
       {deleteAlert && (
@@ -264,6 +290,17 @@ export default function Dashboard() {
           >
             Completed <span>{completed.length}</span>
           </button>
+          {tab === 'completed' && completed.length > 0 && !dataError && (
+            <button
+              type="button"
+              className="subtle clear-completed-alerts"
+              disabled={clearingCompleted || dataLoading}
+              onClick={() => void clearCompletedAlerts()}
+            >
+              <Trash2 size={14} />
+              {clearingCompleted ? 'Deleting alerts...' : 'Delete completed alerts'}
+            </button>
+          )}
           <button className="subtle refresh-alerts" onClick={reload}>
             <RefreshCw size={14} />
             Refresh

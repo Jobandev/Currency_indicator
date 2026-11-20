@@ -1282,7 +1282,18 @@ form .button {
   border-bottom: 1px solid var(--line);
   padding: 0 24px;
 }
-.tabs button:not(.refresh-alerts) {
+.tabs:has(.clear-completed-alerts) {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.tabs .clear-completed-alerts {
+  margin-left: auto;
+  font-size: 10px;
+}
+.tabs .clear-completed-alerts + .refresh-alerts {
+  margin-left: 0;
+}
+.tabs button:not(.refresh-alerts, .clear-completed-alerts) {
   font-size: 10px;
   padding: 10px 0 13px;
   color: #687956;

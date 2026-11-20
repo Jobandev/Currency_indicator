@@ -367,7 +367,7 @@ app.patch('/api/alerts/:id', async (req, res) => {
   res.json({ ok: true });
 });
 app.delete('/api/alerts/:id', async (req, res) => {
-  await deleteAlert(res.locals.uid, String(req.params.id));
+  await deleteAlert(res.locals.uid, String(req.params.id), req.query.status === 'completed');
   res.json({ ok: true });
 });
 app.delete('/api/account', async (_req, res) => {
