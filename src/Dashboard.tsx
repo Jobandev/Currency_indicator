@@ -294,11 +294,12 @@ export default function Dashboard() {
             <button
               type="button"
               className="subtle clear-completed-alerts"
+              aria-label={clearingCompleted ? 'Deleting completed alerts' : 'Delete completed alerts'}
+              title="Delete completed alerts"
               disabled={clearingCompleted || dataLoading}
               onClick={() => void clearCompletedAlerts()}
             >
-              <Trash2 size={14} />
-              {clearingCompleted ? 'Deleting alerts...' : 'Delete completed alerts'}
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           )}
           <button className="subtle refresh-alerts" onClick={reload}>
