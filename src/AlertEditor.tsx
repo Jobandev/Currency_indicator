@@ -162,7 +162,9 @@ export default function AlertEditor() {
             >
               <option value="daily">Daily reference</option>
               <option value="intraday" disabled={!intradayEnabled}>
-                {intradayEnabled ? 'Delayed intraday' : 'Delayed intraday (unavailable)'}
+                {intradayEnabled
+                  ? 'Same-day market rate (delayed)'
+                  : 'Same-day market rate (unavailable)'}
               </option>
             </select>
           </label>

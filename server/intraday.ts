@@ -37,9 +37,15 @@ export function observedRate(pair: string, data: Snapshot, fetchedAt: number): R
 
 const record = () => db.collection('system').doc('intradayRates');
 
+export function intradayConfigured() {
+  return (
+    Boolean(process.env.EXCHANGERATE_DEV_API_KEY) || process.env.EXCHANGERATE_DEV_KEYLESS === 'true'
+  );
+}
+
 export async function refreshIntraday(now = Date.now()) {
   const key = process.env.EXCHANGERATE_DEV_API_KEY;
-  if (!key) return;
+  if (!intradayConfigured()) return;
   const requested = Number(process.env.RATE_MONITOR_INTERVAL_MINUTES || 30);
   const interval = (Number.isFinite(requested) ? Math.max(30, requested) : 30) * 60000;
   const ref = record();
@@ -54,7 +60,7 @@ export async function refreshIntraday(now = Date.now()) {
     'https://api.exchangerate.dev/v1/latest/USD?symbols=' +
       CURRENCY_CODES.filter((code) => code !== 'USD').join(','),
     {
-      headers: { Authorization: 'Bearer ' + key },
+      headers: key ? { Authorization: 'Bearer ' + key } : undefined,
       signal: AbortSignal.timeout(12000),
     },
   );

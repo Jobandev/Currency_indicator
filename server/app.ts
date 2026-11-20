@@ -1,3 +1,4 @@
+import { intradayConfigured } from './intraday.js';
 import { digestSchedule, unsubscribeDigest } from './digests.js';
 import { pushDevicesFor, setPushDevice } from './push.js';
 import { currencies, worldRates } from './world.js';
@@ -42,7 +43,7 @@ app.get('/api/health', (_req, res) =>
     ok: true,
     configured: !!process.env.FIREBASE_PROJECT_ID && adminReady,
     emailEnabled: emailProvider() !== 'off',
-    intradayEnabled: adminReady && Boolean(process.env.EXCHANGERATE_DEV_API_KEY),
+    intradayEnabled: adminReady && intradayConfigured(),
   }),
 );
 const authorizeMonitor: express.RequestHandler = (req, res, next) => {
@@ -95,7 +96,7 @@ app.get('/api/world-rates', async (req, res) => {
 app.get('/api/observed-rate', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const pair = pairSchema.parse(req.query.pair);
-  if (!adminReady || !process.env.EXCHANGERATE_DEV_API_KEY) return res.json(null);
+  if (!adminReady || !intradayConfigured()) return res.json(null);
   const [rate] = await getAlertRates([pair], 'intraday');
   return res.json(rate ?? null);
 });

@@ -919,3 +919,26 @@ it('shares the intraday poll budget across overlapping ticks and clamps the inte
   await refreshIntraday(now + 30 * 60000);
   expect(upstream).toHaveBeenCalledTimes(2);
 });
+
+it('can refresh intraday rates without an API key when keyless access is enabled', async () => {
+  const { refreshIntraday } = await import('../server/intraday');
+  vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
+  vi.stubEnv('EXCHANGERATE_DEV_API_KEY', '');
+  const upstream = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValue(
+      Response.json({
+        base: 'USD',
+        result: 'success',
+        rates: {},
+        effective_at: {},
+        sources: {},
+        stale: {},
+      }),
+    );
+  await refreshIntraday();
+  expect(upstream).toHaveBeenCalledExactlyOnceWith(
+    expect.stringContaining('/v1/latest/USD?symbols='),
+    expect.objectContaining({ headers: undefined }),
+  );
+});
