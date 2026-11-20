@@ -1,3 +1,4 @@
+import AlertRateHistory from './AlertRateHistory';
 import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, Bell } from 'lucide-react';
@@ -343,6 +344,7 @@ export default function AlertEditor() {
             </button>
           </form>
         </section>
+        <AlertRateHistory key={pair} pair={pair} target={Number(target)} />
       </div>
     </Shell>
   );

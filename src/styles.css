@@ -1515,7 +1515,44 @@ td small {
   margin-bottom: 25px;
 }
 .editor-layout {
-  max-width: 650px;
+  display: grid;
+  grid-template-columns: minmax(0, 650px) minmax(300px, 460px);
+  align-items: start;
+  gap: clamp(16px, 2vw, 28px);
+}
+.alert-rate-history {
+  padding: clamp(18px, 2.5vw, 28px);
+}
+.alert-history-indicators {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.alert-history-indicators > div {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eeebf7;
+}
+.alert-history-indicators dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+.alert-history-indicators small {
+  display: block;
+  font-weight: 400;
+}
+.alert-history-plot {
+  height: 200px;
+  min-width: 0;
+}
+.alert-history-source {
+  margin-top: 12px;
+}
+@media (max-width: 1080px) {
+  .editor-layout {
+    grid-template-columns: minmax(0, 650px);
+  }
 }
 .editor {
   padding: 28px;
