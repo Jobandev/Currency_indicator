@@ -14,18 +14,23 @@ async function cancelQueuedNotification(t: Transaction, alert: DocumentSnapshot)
   const ref = db
     .collection('notificationLogs')
     .doc('alert-' + alert.id + '-' + alert.data()!.generation);
-  const job = await t.get(ref);
-  if (!job.exists || job.data()!.status !== 'pending')
+  const refs =
+    alert.data()?.channel === 'both'
+      ? [ref, db.collection('notificationLogs').doc(ref.id + '-push')]
+      : [ref];
+  const jobs = await Promise.all(refs.map((job) => t.get(job)));
+  if (jobs.some((job) => !job.exists || job.data()!.status !== 'pending'))
     throw new HttpError(
       409,
-      'Email delivery is in progress or requires review. Try again shortly.',
+      'Notification delivery is in progress or requires review. Try again shortly.',
     );
-  t.update(ref, {
-    status: 'cancelled',
-    leaseUntil: 0,
-    cancelledAt: Date.now(),
-    errorMessage: 'Cancelled when alert was edited or deleted',
-  });
+  for (const job of refs)
+    t.update(job, {
+      status: 'cancelled',
+      leaseUntil: 0,
+      cancelledAt: Date.now(),
+      errorMessage: 'Cancelled when alert was edited or deleted',
+    });
 }
 export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?: string) {
   if (

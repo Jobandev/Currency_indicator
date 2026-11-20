@@ -58,12 +58,12 @@ export const alertSchema = z
     targetRate: z.number().finite().positive().max(1000000),
     condition: z.enum(['gte', 'lte']),
     immediate: z.boolean().default(false),
-    channel: z.enum(['email', 'push']).optional(),
+    channel: z.enum(['email', 'push', 'both']).optional(),
     repeat: z.boolean().optional(),
     rateSource: z.enum(['daily', 'intraday']).optional(),
   })
   .strict()
-  .refine(({ repeat, channel }) => !repeat || channel === 'push', {
+  .refine(({ repeat, channel }) => !repeat || channel === 'push' || channel === 'both', {
     path: ['repeat'],
     message: 'Recurring alerts require push notifications',
   });

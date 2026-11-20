@@ -307,10 +307,13 @@ async function write(req: express.Request, res: express.Response) {
   if (!u.emailVerified) throw new HttpError(403, 'Verify your email before creating alerts');
   await syncProfile(u);
   const input = alertSchema.parse(req.body);
-  if ((input.channel ?? 'email') === 'email' && emailProvider() === 'off') {
+  if (input.channel !== 'push' && emailProvider() === 'off') {
     throw new HttpError(503, 'Email alerts are unavailable. Choose push notification.');
   }
-  if (input.channel === 'push' && (await pushDevicesFor(u.uid).limit(1).get()).empty) {
+  if (
+    (input.channel === 'push' || input.channel === 'both') &&
+    (await pushDevicesFor(u.uid).limit(1).get()).empty
+  ) {
     throw new HttpError(
       409,
       'Enable push on at least one device in notification settings before saving a push alert.',
@@ -328,8 +331,11 @@ async function write(req: express.Request, res: express.Response) {
   if (input.immediate) {
     await enqueue(id, rate);
     const a = await db.collection('alerts').doc(id).get();
-    if (a.data()?.status === 'processing')
-      await deliver('alert-' + id + '-' + a.data()!.generation);
+    if (a.data()?.status === 'processing') {
+      const key = 'alert-' + id + '-' + a.data()!.generation;
+      if (input.channel === 'both') await Promise.all([deliver(key), deliver(key + '-push')]);
+      else await deliver(key);
+    }
   }
   res.status(req.method === 'POST' ? 201 : 200).json({ id });
 }

@@ -14,12 +14,17 @@ import { Currency, format, friendly, Session, Shell, Toast, Verification } from 
 export default function AlertEditor() {
   const [params] = useSearchParams();
   const requestedPair = pairSchema.safeParse(params.get('pair'));
-  const [selectedChannel, setChannel] = useState<'email' | 'push'>();
+  const [selectedChannel, setChannel] = useState<'email' | 'push' | 'both'>();
   const [pushEnabled, setPushEnabled] = useState(false);
   const [checkingChannels, setCheckingChannels] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
-  const defaultChannel = pushEnabled || (!emailEnabled && pushConfigured) ? 'push' : 'email';
+  const defaultChannel =
+    pushEnabled && emailEnabled
+      ? 'both'
+      : pushEnabled || (!emailEnabled && pushConfigured)
+        ? 'push'
+        : 'email';
   const channel = selectedChannel ?? defaultChannel;
   const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
     params.get('source') === 'intraday' ? 'intraday' : 'daily',
@@ -40,7 +45,8 @@ export default function AlertEditor() {
     }
   });
   const [testAlert, setTestAlert] = useState(false);
-  const repeats = channel === 'push' && repeat && !testAlert;
+  const usesPush = channel !== 'email';
+  const repeats = usesPush && repeat && !testAlert;
   function toggleGuide(hidden: boolean) {
     setGuideHidden(hidden);
     try {
@@ -62,9 +68,14 @@ export default function AlertEditor() {
     void Promise.allSettled([
       api<{ emailEnabled?: boolean }>('/health'),
       api<{ enabled: boolean }>('/push-device'),
-    ]).then(([health, devices]) => {
+      api<{ notificationPreferences?: { email: boolean } }>('/profile'),
+    ]).then(([health, devices, profile]) => {
       if (!active) return;
-      if (health.status === 'fulfilled') setEmailEnabled(health.value.emailEnabled !== false);
+      setEmailEnabled(
+        (health.status !== 'fulfilled' || health.value.emailEnabled !== false) &&
+          (profile.status !== 'fulfilled' ||
+            profile.value.notificationPreferences?.email !== false),
+      );
       if (devices.status === 'fulfilled') setPushEnabled(devices.value.enabled);
       setCheckingChannels(false);
     });
@@ -186,7 +197,8 @@ export default function AlertEditor() {
                   value={channel}
                   disabled={checkingChannels}
                   onChange={(event) => {
-                    setChannel(event.target.value === 'push' ? 'push' : 'email');
+                    const value = event.target.value;
+                    setChannel(value === 'both' || value === 'push' ? value : 'email');
                     setTestAlert(false);
                   }}
                 >
@@ -196,11 +208,16 @@ export default function AlertEditor() {
                   {(pushConfigured || pushEnabled || channel === 'push') && (
                     <option value="push">Push notification</option>
                   )}
+                  {(pushEnabled || channel === 'both') && (
+                    <option value="both" disabled={!emailEnabled}>
+                      Email and push notification
+                    </option>
+                  )}
                 </select>
               </label>
             </div>
             {!emailEnabled && <p>Email alerts are unavailable. Use push on a registered device.</p>}
-            {channel === 'push' && (
+            {usesPush && (
               <p>
                 {pushEnabled
                   ? 'Push goes to your registered devices. '
@@ -208,7 +225,7 @@ export default function AlertEditor() {
                 <Link to="/settings#push-notifications">Manage or test push on this device</Link>.
               </p>
             )}
-            {channel === 'push' && !testAlert && (
+            {usesPush && !testAlert && (
               <>
                 <label className="checkbox">
                   <input
@@ -216,11 +233,11 @@ export default function AlertEditor() {
                     checked={repeat}
                     onChange={(event) => setRepeat(event.target.checked)}
                   />
-                  Keep watching after a push notification
+                  Keep watching after a notification
                 </label>
                 {repeat && (
                   <p>
-                    Get another push when the rate moves away from your target and then reaches it
+                    Get notified again when the rate moves away from your target and then reaches it
                     again.
                   </p>
                 )}
@@ -369,7 +386,8 @@ export default function AlertEditor() {
                 !loaded ||
                 !rate ||
                 checkingChannels ||
-                (channel === 'email' && !emailEnabled) ||
+                (channel !== 'push' && !emailEnabled) ||
+                (usesPush && !pushEnabled) ||
                 (!!satisfied && !immediate && !repeats) ||
                 (testAlert && !satisfied)
               }

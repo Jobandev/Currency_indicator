@@ -747,6 +747,34 @@ it('queues Preview push without sending and completes through mocked FCM outside
   expect([...records.values()].some((record) => record.token === tokens[1])).toBe(false);
 });
 
+it('delivers email and push independently for one crossing and then rearms', async () => {
+  records.set('pushDevices/dual-test', { userId: 'alice', token: 'fake-dual-token' });
+  mocks.sendPush.mockResolvedValue({
+    successCount: 1,
+    responses: [{ success: true, messageId: 'fake-push' }],
+  });
+  const point = { ...rate(), rate: input.targetRate };
+  const id = await saveAlert(
+    'alice',
+    { ...input, channel: 'both', repeat: true, immediate: true },
+    point,
+  );
+  const key = 'alert-' + id + '-1';
+  const sender = vi.fn().mockResolvedValue('fake-email');
+  await enqueue(id, point);
+  await deliver(key, sender);
+  expect(records.get('alerts/' + id).status).toBe('processing');
+  await deliver(key + '-push');
+  await deliver(key, sender);
+  expect(sender).toHaveBeenCalledTimes(1);
+  expect(mocks.sendPush).toHaveBeenCalledTimes(1);
+  expect(records.get('alerts/' + id)).toMatchObject({
+    status: 'active',
+    waitingForReset: true,
+    generation: 2,
+  });
+});
+
 it.each(['gte', 'lte'] as const)(
   'keeps recurring push alerts active and sends once per fresh %s crossing',
   async (condition) => {
