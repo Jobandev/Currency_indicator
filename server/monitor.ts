@@ -5,6 +5,7 @@ import { refreshIntraday } from './intraday.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import { db, auth } from './firebase.js';
+import type { Transaction } from 'firebase-admin/firestore';
 import { matches, fresh, type Alert, type Rate } from '../shared/domain.js';
 import { template, sendEmail, emailProvider, type EmailPayload } from './email.js';
 import { getAlertRates } from './rates.js';
@@ -20,10 +21,19 @@ export async function enqueue(id: string, rate: Rate) {
       a.status !== 'active' ||
       (a.rateSource || 'daily') !== (rate.kind || 'daily') ||
       a.pair !== rate.currencyPair ||
-      !fresh(rate) ||
-      !matches(rate.rate, a.targetRate, a.condition)
+      !fresh(rate)
     )
       return;
+    const reached = matches(rate.rate, a.targetRate, a.condition);
+    const observedAt = Date.parse(rate.providerTimestamp);
+    if (a.repeat) {
+      if (a.lastObservedAt !== undefined && observedAt <= a.lastObservedAt) return;
+      if (!reached || a.waitingForReset) {
+        t.update(aRef, { waitingForReset: reached, lastObservedAt: observedAt });
+        return;
+      }
+    }
+    if (!reached) return;
     const u = await t.get(db.collection('users').doc(a.userId));
     const channel = a.channel || 'email';
     if (
@@ -51,6 +61,7 @@ export async function enqueue(id: string, rate: Rate) {
       observation: rate,
       notificationStatus: 'queued',
       updatedAt: Date.now(),
+      ...(a.repeat && { lastObservedAt: observedAt }),
     });
     t.create(out, {
       id: key,
@@ -74,6 +85,26 @@ function deliveryPaused() {
   if (environment === 'preview' || disabled === 'true') return true;
   return (environment === 'production' || process.env.VERCEL === '1') && disabled !== 'false';
 }
+async function finishAlertCycle(
+  t: Transaction,
+  alertId: string | undefined,
+  generation: number | undefined,
+  outcome: 'accepted' | 'review_required',
+) {
+  if (!alertId) return;
+  const ref = db.collection('alerts').doc(alertId);
+  const alert = (await t.get(ref)).data();
+  if (!alert || alert.generation !== generation || alert.status !== 'processing') return;
+  const recurring = alert.repeat === true;
+  if (!recurring && outcome !== 'accepted') return;
+  t.update(ref, {
+    status: recurring ? 'active' : 'completed',
+    ...(recurring && { waitingForReset: true, generation: alert.generation + 1 }),
+    notificationStatus: outcome,
+    updatedAt: Date.now(),
+  });
+}
+
 export async function deliver(id: string, sender = sendEmail, now = Date.now()) {
   if (deliveryPaused()) return;
   const ref = db.collection('notificationLogs').doc(id),
@@ -117,6 +148,8 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
       j.attempts > 0 &&
       (previousProvider !== provider || ['gmail', 'push'].includes(previousProvider))
     ) {
+      if (provider === 'push')
+        await finishAlertCycle(t, j.alertId, j.generation, 'review_required');
       t.update(ref, {
         status: 'review_required',
         leaseUntil: 0,
@@ -156,10 +189,9 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
         ? await sendPush(job.userId, job.alertId, job.idempotencyKey)
         : await sender(job.payload as EmailPayload, job.idempotencyKey);
     await db.runTransaction(async (t) => {
-      const j = await t.get(ref),
-        aRef = job.alertId ? db.collection('alerts').doc(job.alertId) : null,
-        a = aRef ? await t.get(aRef) : null;
+      const j = await t.get(ref);
       if (j.data()?.leaseToken !== token) return;
+      await finishAlertCycle(t, job.alertId, job.generation, 'accepted');
       t.update(ref, {
         status: 'sent',
         sentAt: Date.now(),
@@ -167,12 +199,6 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
         leaseUntil: 0,
         errorMessage: null,
       });
-      if (aRef && a?.exists && a.data()!.generation === job.generation)
-        t.update(aRef, {
-          status: 'completed',
-          notificationStatus: 'accepted',
-          updatedAt: Date.now(),
-        });
     });
     log(job.notificationType === 'push' ? 'push_accepted' : 'email_accepted', {
       notificationId: id,
@@ -180,13 +206,15 @@ export async function deliver(id: string, sender = sendEmail, now = Date.now()) 
   } catch (error) {
     await db.runTransaction(async (t) => {
       const s = await t.get(ref);
-      if (s.data()?.leaseToken === token)
-        t.update(ref, {
-          status: ['gmail', 'push'].includes(job.deliveryProvider) ? 'review_required' : 'pending',
-          leaseUntil: 0,
-          nextAttemptAt: now + Math.min(3600000, 60000 * 2 ** Math.min(job.attempts, 6)),
-          errorMessage: error instanceof Error ? error.message : 'Delivery failed',
-        });
+      if (s.data()?.leaseToken !== token) return;
+      if (job.deliveryProvider === 'push')
+        await finishAlertCycle(t, job.alertId, job.generation, 'review_required');
+      t.update(ref, {
+        status: ['gmail', 'push'].includes(job.deliveryProvider) ? 'review_required' : 'pending',
+        leaseUntil: 0,
+        nextAttemptAt: now + Math.min(3600000, 60000 * 2 ** Math.min(job.attempts, 6)),
+        errorMessage: error instanceof Error ? error.message : 'Delivery failed',
+      });
     });
     log(job.notificationType === 'push' ? 'push_review' : 'email_retry', { notificationId: id });
   }

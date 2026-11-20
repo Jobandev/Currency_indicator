@@ -215,7 +215,7 @@ export default function Landing() {
             ],
             [
               'What happens when my target is reached?',
-              'Your alert is queued once. When the selected channel accepts it, the alert is completed. You can reactivate it anytime.',
+              'One-time alerts complete after the first notification is accepted. Repeating push alerts keep watching and notify again when the rate moves away and reaches your target again.',
             ],
             [
               'Can I exchange money here?',

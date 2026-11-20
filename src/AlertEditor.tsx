@@ -31,6 +31,7 @@ export default function AlertEditor() {
     [rates, setRates] = useState<Rate[]>([]),
     [rateLoading, setRateLoading] = useState(true);
   const guideKey = 'ratewatch:first-alert-guide:' + user?.uid;
+  const [repeat, setRepeat] = useState(!id);
   const [guideHidden, setGuideHidden] = useState(() => {
     try {
       return localStorage.getItem(guideKey) === 'dismissed';
@@ -39,6 +40,7 @@ export default function AlertEditor() {
     }
   });
   const [testAlert, setTestAlert] = useState(false);
+  const repeats = channel === 'push' && repeat && !testAlert;
   function toggleGuide(hidden: boolean) {
     setGuideHidden(hidden);
     try {
@@ -79,6 +81,7 @@ export default function AlertEditor() {
           setPair(found.pair);
           setRateSource(found.rateSource || 'daily');
           setChannel(found.channel || 'email');
+          setRepeat(found.repeat === true);
           setTarget(String(found.targetRate));
           setCondition(found.condition);
           setLoaded(true);
@@ -124,6 +127,7 @@ export default function AlertEditor() {
           pair,
           rateSource,
           channel,
+          repeat: repeats,
           targetRate: Number(target),
           condition,
           immediate: satisfied ? immediate : false,
@@ -204,6 +208,25 @@ export default function AlertEditor() {
                 <Link to="/settings#push-notifications">Manage or test push on this device</Link>.
               </p>
             )}
+            {channel === 'push' && !testAlert && (
+              <>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={repeat}
+                    onChange={(event) => setRepeat(event.target.checked)}
+                  />
+                  Keep watching after a push notification
+                </label>
+                {repeat && (
+                  <p>
+                    Get another push when the rate moves away from your target and then reaches it
+                    again.
+                  </p>
+                )}
+              </>
+            )}
+            {testAlert && <p>This test sends once.</p>}
             {error && (
               <div className="error" role="alert">
                 {error}
@@ -322,8 +345,9 @@ export default function AlertEditor() {
               <div className="info">
                 <strong>Your target is already satisfied.</strong>
                 <p>
-                  The latest reference rate meets this condition. Request a notification now, or
-                  choose a different target.
+                  {repeats
+                    ? 'Get a notification now, or save and wait for the rate to reach your target again.'
+                    : 'The latest reference rate meets this condition. Request a notification now, or choose a different target.'}
                 </p>
                 <label className="checkbox">
                   <input
@@ -346,7 +370,7 @@ export default function AlertEditor() {
                 !rate ||
                 checkingChannels ||
                 (channel === 'email' && !emailEnabled) ||
-                (!!satisfied && !immediate) ||
+                (!!satisfied && !immediate && !repeats) ||
                 (testAlert && !satisfied)
               }
             >

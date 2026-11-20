@@ -747,6 +747,81 @@ it('queues Preview push without sending and completes through mocked FCM outside
   expect([...records.values()].some((record) => record.token === tokens[1])).toBe(false);
 });
 
+it.each(['gte', 'lte'] as const)(
+  'keeps recurring push alerts active and sends once per fresh %s crossing',
+  async (condition) => {
+    const now = Date.now();
+    const outside = condition === 'gte' ? 52 : 54;
+    const inside = condition === 'gte' ? 54 : 52;
+    const point = (value: number, minutesAgo: number) => ({
+      ...rate(),
+      rate: value,
+      providerTimestamp: new Date(now - minutesAgo * 60000).toISOString(),
+    });
+    records.set('pushDevices/repeat-test', { userId: 'alice', token: 'fake-recurring-token' });
+    mocks.sendPush.mockResolvedValue({
+      successCount: 1,
+      responses: [{ success: true, messageId: 'fake-recurring-message' }],
+    });
+    const id = await saveAlert(
+      'alice',
+      { ...input, condition, channel: 'push', repeat: true },
+      point(outside, 6),
+    );
+    const first = point(inside, 5);
+    await Promise.all([enqueue(id, first), enqueue(id, first)]);
+    await deliver('alert-' + id + '-1');
+    expect(mocks.sendPush).toHaveBeenCalledTimes(1);
+    expect(records.get('alerts/' + id)).toMatchObject({
+      status: 'active',
+      waitingForReset: true,
+      generation: 2,
+    });
+    await enqueue(id, point(inside, 4));
+    await enqueue(id, point(outside, 6)); // A stale observation cannot rearm the alert.
+    await enqueue(id, point(inside, 3));
+    await enqueue(id, point(outside, 4));
+    await enqueue(id, point(inside, 3));
+    expect(records.has('notificationLogs/alert-' + id + '-2')).toBe(false);
+    await enqueue(id, point(outside, 2));
+    expect(records.get('alerts/' + id).waitingForReset).toBe(false);
+    await enqueue(id, point(inside, 1));
+    await deliver('alert-' + id + '-2');
+    expect(mocks.sendPush).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('can start watching a recurring push alert inside the target without sending immediately', async () => {
+  const id = await saveAlert(
+    'alice',
+    { ...input, channel: 'push', repeat: true },
+    { ...rate(), rate: 54 },
+  );
+  expect(records.get('alerts/' + id)).toMatchObject({ status: 'active', waitingForReset: true });
+  expect([...records.keys()].some((path) => path.startsWith('notificationLogs/'))).toBe(false);
+});
+
+it('keeps a recurring alert active after an uncertain push and does not retry that crossing', async () => {
+  const now = Date.now();
+  const earlier = { ...rate(), providerTimestamp: new Date(now - 60000).toISOString() };
+  records.set('pushDevices/repeat-test', { userId: 'alice', token: 'fake-recurring-token' });
+  const id = await saveAlert('alice', { ...input, channel: 'push', repeat: true }, earlier);
+  const crossing = { ...rate(), rate: 54 };
+  await enqueue(id, crossing);
+  mocks.sendPush.mockRejectedValue(new Error('Uncertain provider outcome'));
+  const job = 'alert-' + id + '-1';
+  await deliver(job);
+  await enqueue(id, crossing);
+  await deliver(job);
+  expect(mocks.sendPush).toHaveBeenCalledTimes(1);
+  expect(records.get('notificationLogs/' + job).status).toBe('review_required');
+  expect(records.get('alerts/' + id)).toMatchObject({
+    status: 'active',
+    waitingForReset: true,
+    generation: 2,
+  });
+});
+
 it('evaluates intraday alerts even when the daily provider fails', async () => {
   await make();
   const observation: Rate = { ...rate(), kind: 'intraday', provider: 'exchangerate.dev' };

@@ -59,9 +59,14 @@ export const alertSchema = z
     condition: z.enum(['gte', 'lte']),
     immediate: z.boolean().default(false),
     channel: z.enum(['email', 'push']).optional(),
+    repeat: z.boolean().optional(),
     rateSource: z.enum(['daily', 'intraday']).optional(),
   })
-  .strict();
+  .strict()
+  .refine(({ repeat, channel }) => !repeat || channel === 'push', {
+    path: ['repeat'],
+    message: 'Recurring alerts require push notifications',
+  });
 export type AlertInput = z.infer<typeof alertSchema>;
 export const transferPlanSchema = z
   .object({
@@ -89,6 +94,8 @@ export type Alert = AlertInput & {
   triggeredRate?: number;
   observation?: Rate;
   notificationStatus?: string;
+  waitingForReset?: boolean;
+  lastObservedAt?: number;
 };
 export type Rate = {
   kind?: 'intraday';

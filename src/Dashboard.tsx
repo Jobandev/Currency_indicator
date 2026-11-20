@@ -220,7 +220,7 @@ export default function Dashboard() {
             <CheckCheck size={20} />
           </span>
           <div>
-            <span>Targets reached</span>
+            <span>Completed alerts</span>
             <strong>{dataLoading ? '\u2014' : completed.length}</strong>
           </div>
         </article>
@@ -354,13 +354,16 @@ export default function Dashboard() {
                       <span className={'status ' + a.status}>
                         <span className="green-dot" />
                         {a.status === 'active'
-                          ? 'Watching'
+                          ? a.repeat && a.waitingForReset
+                            ? 'Watching for a new crossing'
+                            : 'Watching'
                           : a.status === 'processing'
                             ? 'Notification queued'
                             : a.status === 'paused'
                               ? 'Paused'
                               : 'Completed'}
                       </span>
+                      {a.repeat && a.status === 'active' && <small>Repeating push alert</small>}
                     </td>
                     <td role="cell" className="alert-actions">
                       <div className="row-actions">

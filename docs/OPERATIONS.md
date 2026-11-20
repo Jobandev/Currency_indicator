@@ -10,6 +10,8 @@ To reconcile review_required: inspect Resend logs by message/recipient/time and 
 
 Account deletion requires authentication within five minutes. An active send lease blocks deletion briefly. Deletion marks the user deleting first, which prevents new alert writes and queue claims; then removes alerts, notification records, Firebase account, and profile. If a provider or database failure interrupts cleanup, sign in and retry deletion. A recently expired send request can already have been accepted; deletion cannot recall mail. Provider logs/backups have their own retention policies.
 
+Recurring push alerts return to active after a send. The monitor rearms an alert only after a newer observation moves outside its target condition, then creates a new notification generation when the target is reached again.
+
 ## Logs and health
 
 GET /api/health checks the process and reports whether a project ID exists. It does not prove database, sender, scheduler, or rate-provider availability. Structured events: monitor_rates_error, email_retry, email_accepted, request_error. They omit email bodies, credentials, and tokens. The system/monitor document records token, lease expiry, and lastCompletedAt. Rate failures are logged even if the queue succeeds; the endpoint returns HTTP 503 and the standalone worker exits nonzero after processing the queue so scheduler failure notifications can detect rate outages. lastRatesOk records the rate-fetch result. Queue sends are paced 600ms apart to avoid bursts; immediate API sends can still receive provider 429s and are queued for retry.

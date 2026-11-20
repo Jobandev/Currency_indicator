@@ -34,7 +34,8 @@ export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?:
     !fresh(rate)
   )
     throw new HttpError(503, 'Fresh reference rates temporarily unavailable');
-  if (matches(rate.rate, input.targetRate, input.condition) && !input.immediate)
+  const reached = matches(rate.rate, input.targetRate, input.condition);
+  if (reached && !input.immediate && !input.repeat)
     throw new HttpError(
       409,
       'Target already satisfied. Enable immediate notification to continue.',
@@ -69,6 +70,12 @@ export async function saveAlert(uid: string, input: AlertInput, rate: Rate, id?:
       generation: (old.data()?.generation || 0) + 1,
       createdAt: old.data()?.createdAt || now,
       updatedAt: now,
+      ...(input.repeat && {
+        waitingForReset: reached && !input.immediate,
+        ...(input.immediate && reached
+          ? {}
+          : { lastObservedAt: Date.parse(rate.providerTimestamp) }),
+      }),
     });
   });
   return ref.id;
