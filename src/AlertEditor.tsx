@@ -19,6 +19,7 @@ export default function AlertEditor() {
   const [selectedChannel, setChannel] = useState<'email' | 'push' | 'both'>();
   const [pushEnabled, setPushEnabled] = useState(false);
   const [checkingChannels, setCheckingChannels] = useState(true);
+  const [intradayEnabled, setIntradayEnabled] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
   const defaultChannel = emailEnabled ? 'both' : 'push';
@@ -61,7 +62,7 @@ export default function AlertEditor() {
   useEffect(() => {
     let active = true;
     void Promise.allSettled([
-      api<{ emailEnabled?: boolean }>('/health'),
+      api<{ emailEnabled?: boolean; intradayEnabled?: boolean }>('/health'),
       api<{ enabled: boolean }>('/push-device'),
       api<{ notificationPreferences?: { email: boolean } }>('/profile'),
     ]).then(([health, devices, profile]) => {
@@ -71,6 +72,7 @@ export default function AlertEditor() {
           (profile.status !== 'fulfilled' ||
             profile.value.notificationPreferences?.email !== false),
       );
+      if (health.status === 'fulfilled') setIntradayEnabled(health.value.intradayEnabled === true);
       if (devices.status === 'fulfilled') setPushEnabled(devices.value.enabled);
       setCheckingChannels(false);
     });
@@ -148,29 +150,36 @@ export default function AlertEditor() {
   return (
     <Shell>
       <Verification />
-      <div className="rate-source-control">
-        <label>
-          Monitoring source{' '}
-          <select
-            value={rateSource}
-            onChange={(event) =>
-              setRateSource(event.target.value === 'intraday' ? 'intraday' : 'daily')
-            }
-          >
-            <option value="daily">Daily reference</option>
-            <option value="intraday">Delayed intraday</option>
-          </select>
-        </label>
-        {rateSource === 'intraday' && (
-          <p>
-            <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>. Observations are
-            delayed.{' '}
-            {!rateLoading &&
-              !rate &&
-              'An intraday observation is currently unavailable for this pair.'}
-          </p>
-        )}
-      </div>
+      {(intradayEnabled || rateSource === 'intraday') && (
+        <div className="rate-source-control">
+          <label>
+            Monitoring source{' '}
+            <select
+              value={rateSource}
+              onChange={(event) =>
+                setRateSource(event.target.value === 'intraday' ? 'intraday' : 'daily')
+              }
+            >
+              <option value="daily">Daily reference</option>
+              <option value="intraday" disabled={!intradayEnabled}>
+                {intradayEnabled ? 'Delayed intraday' : 'Delayed intraday (unavailable)'}
+              </option>
+            </select>
+          </label>
+          {rateSource === 'intraday' && !intradayEnabled && (
+            <p>Intraday rates are unavailable. Choose Daily reference to use the daily rate.</p>
+          )}
+          {rateSource === 'intraday' && intradayEnabled && (
+            <p>
+              <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>. Observations are
+              delayed.{' '}
+              {!rateLoading &&
+                !rate &&
+                'An intraday observation is currently unavailable for this pair.'}
+            </p>
+          )}
+        </div>
+      )}
       <Link className="back-link" to="/dashboard">
         ← Back to overview
       </Link>
@@ -216,7 +225,6 @@ export default function AlertEditor() {
                 onEnabled={() => setPushEnabled(true)}
               />
             )}
-            <p>Each alert sends once and then moves to Completed.</p>
             {testAlert && <p>This test sends once.</p>}
             {error && (
               <div className="error" role="alert">

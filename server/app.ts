@@ -42,6 +42,7 @@ app.get('/api/health', (_req, res) =>
     ok: true,
     configured: !!process.env.FIREBASE_PROJECT_ID && adminReady,
     emailEnabled: emailProvider() !== 'off',
+    intradayEnabled: adminReady && Boolean(process.env.EXCHANGERATE_DEV_API_KEY),
   }),
 );
 const authorizeMonitor: express.RequestHandler = (req, res, next) => {

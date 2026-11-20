@@ -151,21 +151,19 @@ export default function PushSettings({
   }
 
   if (inline) {
+    if (supported && enabled && accountHasPush && Notification.permission === 'granted')
+      return null;
     return (
-      <div className="info">
-        <strong>Push on this device</strong>
-        {supported && enabled && accountHasPush && Notification.permission === 'granted' ? (
-          <p>This device is set up for push notifications.</p>
-        ) : supported ? (
+      <div className="rw-push-setup">
+        {supported ? (
           <>
-            <p>Allow notifications once to receive rate alerts here.</p>
             <button
               type="button"
               className="button secondary"
               disabled={busy}
               onClick={() => void change()}
             >
-              {busy ? 'Setting up push?' : 'Enable push on this device'}
+              {busy ? 'Setting up push...' : 'Enable push on this device'}
             </button>
           </>
         ) : (
