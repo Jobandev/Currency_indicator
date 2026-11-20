@@ -11,7 +11,7 @@ import {
 } from '../shared/domain';
 import { api } from './api';
 import PushSettings from './PushSettings';
-import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
+import { format, friendly, Session, Shell, Toast, Verification } from './ui';
 export default function AlertEditor() {
   const [params] = useSearchParams();
   const requestedImmediate = params.get('notify') === 'now';
@@ -229,24 +229,9 @@ export default function AlertEditor() {
                 </select>
               </label>
             </div>
-            <div className="reference-box">
-              <Currency pair={pair} />
-              <div>
-                <strong>{rate ? format(rate.rate) : '\u2014'}</strong>
-                <small>
-                  {rate ? (
-                    <>
-                      <a href="https://exchangerate.dev/">Exchangerate.dev</a> ?{' '}
-                      {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
-                    </>
-                  ) : rateLoading ? (
-                    'Loading market rate...'
-                  ) : (
-                    'Market rate unavailable'
-                  )}
-                </small>
-              </div>
-            </div>
+            {loaded && !rateLoading && !rate && !error && (
+              <p role="status">Market rate unavailable for this pair.</p>
+            )}
             <label>
               Your target rate
               <input
