@@ -208,11 +208,9 @@ export default function AlertEditor() {
                   {(pushConfigured || pushEnabled || channel === 'push') && (
                     <option value="push">Push notification</option>
                   )}
-                  {(pushEnabled || channel === 'both') && (
-                    <option value="both" disabled={!emailEnabled}>
-                      Email and push notification
-                    </option>
-                  )}
+                  <option value="both" disabled={!emailEnabled}>
+                    Email and push notification
+                  </option>
                 </select>
               </label>
             </div>
@@ -221,7 +219,7 @@ export default function AlertEditor() {
               <p>
                 {pushEnabled
                   ? 'Push goes to your registered devices. '
-                  : 'Enable push on a device before saving. '}
+                  : 'Enable push on this phone or another device before saving. '}
                 <Link to="/settings#push-notifications">Manage or test push on this device</Link>.
               </p>
             )}
