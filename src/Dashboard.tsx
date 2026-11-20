@@ -39,7 +39,9 @@ import { fresh, pairSchema, type Alert, type Notice, type Rate } from '../shared
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const showTestReminder = location.state?.testAlertRequested === true;
+  const testChannel = location.state?.testAlertChannel;
+  const showTestReminder =
+    testChannel === 'email' || testChannel === 'push' || testChannel === 'both';
   const { user } = useContext(Session),
     toast = useContext(Toast),
     { rates } = useRates();
@@ -160,14 +162,12 @@ export default function Dashboard() {
       <Verification />
       {showTestReminder && (
         <div className="test-alert-reminder" role="status">
-          <Mail size={22} aria-hidden="true" />
+          <Bell size={22} aria-hidden="true" />
           <div>
-            <strong>Your test alert is saved. Check your email.</strong>
-            <p>
-              Check your inbox or Spam folder. If it is in Spam, select <strong>Not spam</strong> to
-              help future alerts reach your inbox. See Recent notifications below for the sending
-              status.
-            </p>
+            <strong>
+              Test alert requested by {testChannel === 'both' ? 'email and push' : testChannel}.
+            </strong>
+            <p>Check Recent notifications below for each delivery result.</p>
           </div>
           <button
             type="button"

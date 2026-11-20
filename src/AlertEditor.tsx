@@ -113,7 +113,7 @@ export default function AlertEditor() {
         }),
       });
       toast('Alert saved. We’ll keep watch for you.');
-      navigate('/dashboard', { state: { testAlertRequested: testAlert } });
+      navigate('/dashboard', { state: { testAlertChannel: testAlert ? channel : null } });
     } catch (e) {
       setError(friendly(e));
     } finally {
@@ -243,14 +243,13 @@ export default function AlertEditor() {
                 1 {pair.split('/')[0]} = your target in {pair.split('/')[1]}
               </small>
             </label>
-            {!id && emailEnabled && (
+            {!id && (
               <button
                 type="button"
                 className="button outline small"
                 disabled={busy || !loaded || rateLoading || !rate}
                 onClick={() => {
                   if (!rate) return;
-                  setChannel('email');
                   setTarget(String(rate.rate));
                   setCondition('gte');
                   setImmediate(true);
