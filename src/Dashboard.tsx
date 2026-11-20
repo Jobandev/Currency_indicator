@@ -363,6 +363,13 @@ export default function Dashboard() {
                               ? 'Paused'
                               : 'Completed'}
                       </span>
+                      <small>
+                        {a.channel === 'both'
+                          ? 'Email + push'
+                          : a.channel === 'push'
+                            ? 'Push'
+                            : 'Email'}
+                      </small>
                       {a.repeat && a.status === 'active' && a.waitingForReset && (
                         <>
                           <small>

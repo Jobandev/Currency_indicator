@@ -3,7 +3,17 @@ import { auth } from './firebase';
 import { useLocation } from 'react-router-dom';
 import { api } from './api';
 
-export default function PushSettings({ uid }: { uid: string }) {
+export default function PushSettings({
+  uid,
+  inline = false,
+  accountHasPush = true,
+  onEnabled,
+}: {
+  uid: string;
+  inline?: boolean;
+  accountHasPush?: boolean;
+  onEnabled?: () => void;
+}) {
   const { hash } = useLocation();
   const key = 'ratewatch:push:' + uid;
   const [enabled, setEnabled] = useState(() => {
@@ -74,11 +84,12 @@ export default function PushSettings({ uid }: { uid: string }) {
   async function change() {
     if (!auth || busy) return;
     // Invalidate pending token refreshes before an opt-out can remove the device.
-    if (enabled) registrationRevision.current++;
+    const disabling = enabled && !inline;
+    if (disabling) registrationRevision.current++;
     setBusy(true);
     setMessage('');
     try {
-      if (!enabled && (await Notification.requestPermission()) !== 'granted') {
+      if (!disabling && (await Notification.requestPermission()) !== 'granted') {
         setMessage('Allow notifications in your browser or device settings to continue.');
         return;
       }
@@ -92,20 +103,21 @@ export default function PushSettings({ uid }: { uid: string }) {
         serviceWorkerRegistration: worker,
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
       });
-      if (enabled) await refreshWrite.current?.catch(() => {});
+      if (disabling) await refreshWrite.current?.catch(() => {});
       if (auth.currentUser?.uid !== uid) return;
       await api('/push-device', {
         method: 'PUT',
-        body: JSON.stringify({ token, enabled: !enabled }),
+        body: JSON.stringify({ token, enabled: !disabling }),
       });
-      setEnabled(!enabled);
+      setEnabled(!disabling);
       try {
-        localStorage.setItem(key, enabled ? 'disabled' : 'enabled');
+        localStorage.setItem(key, disabling ? 'disabled' : 'enabled');
       } catch {
         /* Device storage unavailable. */
       }
-      if (enabled) await deleteToken(messaging).catch(() => {});
-      setMessage(enabled ? 'Push disabled on this device.' : 'Push enabled on this device.');
+      if (disabling) await deleteToken(messaging).catch(() => {});
+      else onEnabled?.();
+      setMessage(disabling ? 'Push disabled on this device.' : 'Push enabled on this device.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not update push notifications.');
     } finally {
@@ -136,6 +148,35 @@ export default function PushSettings({ uid }: { uid: string }) {
         'This device could not display the test. Check your browser and system notification settings.',
       );
     }
+  }
+
+  if (inline) {
+    return (
+      <div className="info">
+        <strong>Push on this device</strong>
+        {supported && enabled && accountHasPush && Notification.permission === 'granted' ? (
+          <p>This device is set up for push notifications.</p>
+        ) : supported ? (
+          <>
+            <p>Allow notifications once to receive rate alerts here.</p>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy}
+              onClick={() => void change()}
+            >
+              {busy ? 'Setting up push?' : 'Enable push on this device'}
+            </button>
+          </>
+        ) : (
+          <p>
+            Push is unavailable in this browser. On iPhone, add RateWatch to your Home Screen and
+            open it there.
+          </p>
+        )}
+        {message && <p role="status">{message}</p>}
+      </div>
+    );
   }
 
   return (

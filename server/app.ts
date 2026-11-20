@@ -324,7 +324,7 @@ async function write(req: express.Request, res: express.Response) {
   if (!rate) throw new HttpError(503, 'Rate unavailable');
   const id = await saveAlert(
     u.uid,
-    input,
+    { ...input, repeat: false },
     rate,
     typeof req.params.id === 'string' ? req.params.id : undefined,
   );

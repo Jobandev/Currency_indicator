@@ -10,6 +10,7 @@ import {
   type Rate,
 } from '../shared/domain';
 import { api } from './api';
+import PushSettings from './PushSettings';
 import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
 export default function AlertEditor() {
   const [params] = useSearchParams();
@@ -20,12 +21,7 @@ export default function AlertEditor() {
   const [checkingChannels, setCheckingChannels] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
-  const defaultChannel =
-    pushEnabled && emailEnabled
-      ? 'both'
-      : pushEnabled || (!emailEnabled && pushConfigured)
-        ? 'push'
-        : 'email';
+  const defaultChannel = emailEnabled ? 'both' : 'push';
   const channel = selectedChannel ?? defaultChannel;
   const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
     params.get('source') === 'intraday' ? 'intraday' : 'daily',
@@ -37,7 +33,6 @@ export default function AlertEditor() {
     [rates, setRates] = useState<Rate[]>([]),
     [rateLoading, setRateLoading] = useState(true);
   const guideKey = 'ratewatch:first-alert-guide:' + user?.uid;
-  const [repeat, setRepeat] = useState(false);
   const [guideHidden, setGuideHidden] = useState(() => {
     try {
       return localStorage.getItem(guideKey) === 'dismissed';
@@ -47,7 +42,6 @@ export default function AlertEditor() {
   });
   const [testAlert, setTestAlert] = useState(false);
   const usesPush = channel !== 'email';
-  const repeats = usesPush && repeat && !testAlert;
   function toggleGuide(hidden: boolean) {
     setGuideHidden(hidden);
     try {
@@ -93,7 +87,6 @@ export default function AlertEditor() {
           setPair(found.pair);
           setRateSource(found.rateSource || 'daily');
           setChannel(found.channel || 'email');
-          setRepeat(found.repeat === true);
           setTarget(String(found.targetRate));
           setCondition(found.condition);
           setLoaded(true);
@@ -139,7 +132,6 @@ export default function AlertEditor() {
           pair,
           rateSource,
           channel,
-          repeat: repeats,
           targetRate: Number(target),
           condition,
           immediate: satisfied ? immediate : false,
@@ -216,33 +208,15 @@ export default function AlertEditor() {
               </label>
             </div>
             {!emailEnabled && <p>Email alerts are unavailable. Use push on a registered device.</p>}
-            {usesPush && (
-              <p>
-                {pushEnabled
-                  ? 'Push goes to your registered devices. '
-                  : 'Enable push on this phone or another device before saving. '}
-                <Link to="/settings#push-notifications">Manage or test push on this device</Link>.
-              </p>
+            {usesPush && user && (
+              <PushSettings
+                uid={user.uid}
+                inline
+                accountHasPush={pushEnabled}
+                onEnabled={() => setPushEnabled(true)}
+              />
             )}
-            {usesPush && !testAlert && (
-              <>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={repeat}
-                    onChange={(event) => setRepeat(event.target.checked)}
-                  />
-                  Repeat after the rate crosses the target again
-                </label>
-                {!repeat && <p>This alert moves to Completed after delivery.</p>}
-                {repeat && (
-                  <p>
-                    Get notified again when the rate moves away from your target and then reaches it
-                    again.
-                  </p>
-                )}
-              </>
-            )}
+            <p>Each alert sends once and then moves to Completed.</p>
             {testAlert && <p>This test sends once.</p>}
             {error && (
               <div className="error" role="alert">
@@ -368,11 +342,7 @@ export default function AlertEditor() {
             {satisfied && (
               <div className="info">
                 <strong>Your target is already satisfied.</strong>
-                <p>
-                  {repeats
-                    ? 'Get a notification now, or save and wait for the rate to reach your target again.'
-                    : 'The latest reference rate meets this condition. Request a notification now, or choose a different target.'}
-                </p>
+                <p>The latest reference rate meets your target. You can send this alert now.</p>
                 <label className="checkbox">
                   <input
                     type="checkbox"
@@ -395,7 +365,7 @@ export default function AlertEditor() {
                 checkingChannels ||
                 (channel !== 'push' && !emailEnabled) ||
                 (usesPush && !pushEnabled) ||
-                (!!satisfied && !immediate && !repeats) ||
+                (!!satisfied && !immediate) ||
                 (testAlert && !satisfied)
               }
             >
