@@ -24,20 +24,16 @@ export default function Converter({
   useEffect(() => {
     if (base === quote) return;
     const controller = new AbortController();
-    Promise.allSettled([
-      api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair), {
-        signal: controller.signal,
-      }),
-      api<Rate[]>('/world-rates?base=' + base, { signal: controller.signal }),
-    ]).then(([observed, daily]) => {
-      if (controller.signal.aborted) return;
-      const intraday = observed.status === 'fulfilled' ? observed.value : null;
-      const reference =
-        daily.status === 'fulfilled'
-          ? daily.value.find((rate) => rate.currencyPair === pair)
-          : null;
-      setResult({ pair, rate: intraday && fresh(intraday) ? intraday : (reference ?? intraday) });
-    });
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair), {
+      signal: controller.signal,
+    })
+      .then((rate) => {
+        if (!controller.signal.aborted)
+          setResult({ pair, rate: rate && fresh(rate) ? rate : null });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setResult({ pair, rate: null });
+      });
     return () => controller.abort();
   }, [base, quote, pair, request]);
   const rate = result?.pair === pair ? result.rate : undefined;
@@ -48,7 +44,7 @@ export default function Converter({
     rate &&
     new Intl.DateTimeFormat('en-NZ', {
       dateStyle: 'medium',
-      ...(rate.kind === 'intraday' ? ({ timeStyle: 'short' } as const) : { timeZone: 'UTC' }),
+      timeStyle: 'short',
     }).format(new Date(rate.providerTimestamp));
   return (
     <section
@@ -128,7 +124,7 @@ export default function Converter({
         ) : rate === undefined ? (
           <p>Loading rate…</p>
         ) : !rate ? (
-          <p>Exchange rate unavailable. Try another pair.</p>
+          <p>Market rate unavailable. Try again when a fresh rate is available.</p>
         ) : (
           <>
             <strong>
@@ -144,13 +140,7 @@ export default function Converter({
               1 {base} = {format(rate.rate, 6)} {quote}
             </p>
             <small>
-              {rate.kind === 'intraday' ? (
-                <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>
-              ) : (
-                <a href="https://frankfurter.dev/">Frankfurter daily reference</a>
-              )}{' '}
-              · {date}
-              {!fresh(rate) ? ' · Older observation' : rate.kind ? ' · Delayed observation' : ''}
+              <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a> ? {date}
             </small>
           </>
         )}
@@ -173,11 +163,7 @@ export default function Converter({
       {base !== quote && (
         <Link
           className={editorial ? 'rw-button rw-alert-action' : 'button full'}
-          to={
-            '/alerts/new?pair=' +
-            encodeURIComponent(pair) +
-            (rate?.kind && fresh(rate) ? '&source=intraday' : '')
-          }
+          to={'/alerts/new?pair=' + encodeURIComponent(pair)}
         >
           {editorial ? 'Create a free alert' : 'Create free alert'}
         </Link>

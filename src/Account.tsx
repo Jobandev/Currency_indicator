@@ -522,8 +522,8 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
               endpoint. Firebase Authentication handles sign-in, including optional Google sign-in.
               Cloud Firestore stores application records, and Firebase Cloud Messaging delivers push
               where enabled. RateWatch uses the configured email provider for alerts and summaries.
-              The application supports Gmail and Resend. Frankfurter supplies daily reference
-              rates, and exchangerate.dev supplies delayed observations where enabled.
+              The application supports Gmail and Resend. Frankfurter supplies daily reference rates,
+              and exchangerate.dev supplies delayed observations where enabled.
             </p>
             <p>
               RateWatch does not execute transfers or collect payment details. If you follow a link
@@ -611,9 +611,10 @@ export function Legal({ kind }: { kind: 'privacy' | 'terms' | 'disclaimer' }) {
           <>
             <h2>Reference information only</h2>
             <p>
-              Frankfurter publishes daily reference rates. When available, exchangerate.dev provides
-              delayed intraday observations. RateWatch shows when the underlying rate was observed.
-              The rates are indicative and may differ from bank or remittance quotes.
+              Exchangerate.dev provides market rates for conversions and alerts. Frankfurter
+              provides daily reference rates for historical analysis. RateWatch shows the
+              observation time. The rates are indicative and may differ from bank or remittance
+              quotes.
             </p>
             <h2>Make your own comparison</h2>
             <p>

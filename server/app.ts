@@ -10,7 +10,14 @@ import rateLimit from 'express-rate-limit';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { auth, db, adminReady } from './firebase.js';
-import { alertSchema, PAIRS, pairSchema, transferPlanSchema } from '../shared/domain.js';
+import {
+  alertSchema,
+  CURRENCY_CODES,
+  fresh,
+  PAIRS,
+  pairSchema,
+  transferPlanSchema,
+} from '../shared/domain.js';
 import { emailProvider } from './email.js';
 import { getRates, getAlertRates, history } from './rates.js';
 import { HttpError, saveAlert, deleteAlert, setAlertPaused } from './alerts.js';
@@ -91,6 +98,16 @@ app.get('/api/world-rates', async (req, res) => {
     .parse(req.query.base);
   if (!(await currencies()).some((c) => c.code === base))
     throw new HttpError(400, 'Unsupported base currency');
+  if (req.query.source === 'market') {
+    res.set('Cache-Control', 'no-store');
+    if (!intradayConfigured() || !adminReady || !CURRENCY_CODES.some((code) => code === base))
+      return res.json([]);
+    const rates = await getAlertRates(
+      CURRENCY_CODES.filter((code) => code !== base).map((code) => base + '/' + code),
+      'intraday',
+    );
+    return res.json(rates.filter((rate) => fresh(rate)));
+  }
   res.json(await worldRates(base));
 });
 app.get('/api/observed-rate', async (req, res) => {
@@ -98,7 +115,7 @@ app.get('/api/observed-rate', async (req, res) => {
   const pair = pairSchema.parse(req.query.pair);
   if (!adminReady || !intradayConfigured()) return res.json(null);
   const [rate] = await getAlertRates([pair], 'intraday');
-  return res.json(rate ?? null);
+  return res.json(rate && fresh(rate) ? rate : null);
 });
 app.get('/api/rates', async (_req, res) => res.json(await getRates()));
 app.get('/api/history', async (req, res) => {
@@ -321,12 +338,13 @@ async function write(req: express.Request, res: express.Response) {
       'Enable push on at least one device in notification settings before saving a push alert.',
     );
   }
-  const rates = await getAlertRates([input.pair], input.rateSource),
+  const rateSource = intradayConfigured() ? 'intraday' : input.rateSource;
+  const rates = await getAlertRates([input.pair], rateSource),
     rate = rates.find((r) => r.currencyPair === input.pair);
   if (!rate) throw new HttpError(503, 'Rate unavailable');
   const id = await saveAlert(
     u.uid,
-    { ...input, repeat: false },
+    { ...input, rateSource, repeat: false },
     rate,
     typeof req.params.id === 'string' ? req.params.id : undefined,
   );

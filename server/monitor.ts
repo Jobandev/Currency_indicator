@@ -1,7 +1,7 @@
 import { queueDigests } from './digests.js';
 import { queueRateTips } from './rate-tips.js';
 import { pushDevicesFor, sendPush } from './push.js';
-import { refreshIntraday } from './intraday.js';
+import { intradayConfigured, refreshIntraday } from './intraday.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import { db, auth } from './firebase.js';
@@ -11,7 +11,7 @@ import { template, sendEmail, emailProvider, type EmailPayload } from './email.j
 import { getAlertRates } from './rates.js';
 export const log = (event: string, data: object = {}) =>
   console.log(JSON.stringify({ event, at: new Date().toISOString(), ...data }));
-export async function enqueue(id: string, rate: Rate) {
+export async function enqueue(id: string, rate: Rate, useMarket = false) {
   const aRef = db.collection('alerts').doc(id);
   await db.runTransaction(async (t) => {
     const snap = await t.get(aRef);
@@ -19,21 +19,25 @@ export async function enqueue(id: string, rate: Rate) {
     const a = snap.data() as Alert;
     if (
       a.status !== 'active' ||
-      (a.rateSource || 'daily') !== (rate.kind || 'daily') ||
+      (useMarket ? 'intraday' : a.rateSource || 'daily') !== (rate.kind || 'daily') ||
       a.pair !== rate.currencyPair ||
       !fresh(rate)
     )
       return;
+    const marketSource = useMarket && a.rateSource !== 'intraday' ? { rateSource: 'intraday' } : {};
     const reached = matches(rate.rate, a.targetRate, a.condition);
     const observedAt = Date.parse(rate.providerTimestamp);
     if (a.repeat) {
       if (a.lastObservedAt !== undefined && observedAt <= a.lastObservedAt) return;
       if (!reached || a.waitingForReset) {
-        t.update(aRef, { waitingForReset: reached, lastObservedAt: observedAt });
+        t.update(aRef, { ...marketSource, waitingForReset: reached, lastObservedAt: observedAt });
         return;
       }
     }
-    if (!reached) return;
+    if (!reached) {
+      if (marketSource.rateSource) t.update(aRef, marketSource);
+      return;
+    }
     const u = await t.get(db.collection('users').doc(a.userId));
     const channel = a.channel || 'email';
     if (
@@ -55,6 +59,7 @@ export async function enqueue(id: string, rate: Rate) {
       existing = await t.get(out);
     if (existing.exists) return;
     t.update(aRef, {
+      ...marketSource,
       status: 'processing',
       triggeredAt: triggered.triggeredAt,
       triggeredRate: rate.rate,
@@ -263,8 +268,11 @@ export async function monitor() {
       for (;;) {
         const query = db.collection('alerts').where('status', '==', 'active').orderBy('__name__');
         const page = await (cursor ? query.startAfter(cursor) : query).limit(200).get();
-        for (const source of ['daily', 'intraday']) {
-          const selected = page.docs.filter((doc) => (doc.data().rateSource || 'daily') === source);
+        const useMarket = intradayConfigured();
+        for (const source of useMarket ? ['intraday'] : ['daily', 'intraday']) {
+          const selected = useMarket
+            ? page.docs
+            : page.docs.filter((doc) => (doc.data().rateSource || 'daily') === source);
           if (!selected.length) continue;
           const pairs = selected.map((doc) => doc.data().pair);
           let rates: Rate[];
@@ -281,7 +289,7 @@ export async function monitor() {
           const map = new Map(rates.map((rate) => [rate.currencyPair, rate]));
           for (const doc of selected) {
             const rate = map.get(doc.data().pair);
-            if (rate) await enqueue(doc.id, rate);
+            if (rate) await enqueue(doc.id, rate, useMarket);
           }
         }
         if (page.size < 200) break;

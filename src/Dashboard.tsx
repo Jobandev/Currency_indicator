@@ -66,12 +66,9 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [marketRates, setMarketRates] = useState<Rate[]>([]);
-  const [alertRates, setAlertRates] = useState<Rate[]>([]);
   const clearingAlertLink = useRef(false);
-  const allRates = [
-    ...new Map(
-      [...alertRates, ...rates, ...marketRates].map((r) => [r.currencyPair, r] as const),
-    ).values(),
+  const currentRates = [
+    ...new Map([...marketRates, ...observations].map((rate) => [rate.currencyPair, rate])).values(),
   ];
   const reload = () => {
     setDataLoading(true);
@@ -81,11 +78,7 @@ export default function Dashboard() {
       .then(([a, n]) => {
         if (a.status === 'fulfilled') {
           setAlerts(a.value);
-          const intraday = [
-            ...new Set(
-              a.value.filter((alert) => alert.rateSource === 'intraday').map((alert) => alert.pair),
-            ),
-          ];
+          const intraday = [...new Set(a.value.map((alert) => alert.pair))];
           void Promise.allSettled(
             intraday.map((pair) =>
               api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair)),
@@ -96,12 +89,6 @@ export default function Dashboard() {
                 result.status === 'fulfilled' && result.value ? [result.value] : [],
               ),
             );
-          });
-          const bases = [...new Set(a.value.map((alert) => alert.baseCurrency))];
-          void Promise.allSettled(
-            bases.map((base) => api<Rate[]>('/world-rates?base=' + base)),
-          ).then((results) => {
-            setAlertRates(results.flatMap((r) => (r.status === 'fulfilled' ? r.value : [])));
           });
         } else setDataError(friendly(a.reason));
         if (n.status === 'fulfilled') setNotices(n.value);
@@ -196,7 +183,7 @@ export default function Dashboard() {
       <div className="page-heading overview-heading">
         <div>
           <h1>Rate dashboard</h1>
-          <p>Manage your targets and compare the latest reference rates.</p>
+          <p>Manage your targets and compare market rates.</p>
         </div>
         <Link className="button" to="/alerts/new">
           <Plus size={18} /> Create an alert
@@ -296,7 +283,7 @@ export default function Dashboard() {
                 <tr role="row">
                   <th scope="col">Currency pair</th>
                   <th scope="col">Your target</th>
-                  <th scope="col">Reference rate</th>
+                  <th scope="col">Market rate</th>
                   <th scope="col">Status</th>
                   <th scope="col">
                     <span className="sr-only">Actions</span>
@@ -320,34 +307,21 @@ export default function Dashboard() {
                     </td>
                     <td role="cell">
                       <span className="alert-mobile-label" aria-hidden="true">
-                        Reference rate
+                        Market rate
                       </span>
-                      {a.rateSource !== 'intraday' &&
-                      allRates.find((r) => r.currencyPair === a.pair)
-                        ? format(allRates.find((r) => r.currencyPair === a.pair)!.rate)
-                        : a.rateSource === 'intraday'
-                          ? (() => {
-                              const rate = observations.find(
-                                (entry) => entry.currencyPair === a.pair,
-                              );
-                              return rate ? (
-                                <>
-                                  {format(rate.rate)}
-                                  <small>
-                                    {fresh(rate) ? 'Delayed' : 'Older'} observation ?{' '}
-                                    {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
-                                  </small>
-                                </>
-                              ) : (
-                                '\u2014'
-                              );
-                            })()
-                          : '\u2014'}
-                      {a.rateSource === 'intraday' && (
-                        <small>
-                          <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>
-                        </small>
-                      )}
+                      {(() => {
+                        const rate = currentRates.find((entry) => entry.currencyPair === a.pair);
+                        return rate && fresh(rate) ? (
+                          <>
+                            {format(rate.rate)}
+                            <small>
+                              {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
+                            </small>
+                          </>
+                        ) : (
+                          'Unavailable'
+                        );
+                      })()}
                       {a.triggeredRate && <small>Triggered at {format(a.triggeredRate)}</small>}
                     </td>
                     <td role="cell" className="alert-status">
@@ -432,8 +406,8 @@ export default function Dashboard() {
       </section>
       <WorldRates onSelect={setPair} onRates={setMarketRates} />
       <div className="chart-calculator">
-        <RateChart pair={pair} setPair={setPair} rates={allRates} />
-        <Calculator rates={rates} />
+        <RateChart pair={pair} setPair={setPair} rates={rates} />
+        <Calculator rates={currentRates.filter((rate) => fresh(rate))} />
       </div>
       <section className="card chart-card" aria-labelledby="favorites-heading">
         <h2 id="favorites-heading">Favourite pairs</h2>
@@ -553,7 +527,7 @@ export default function Dashboard() {
         )}
       </section>
       <p className="disclaimer">
-        <CircleHelp size={14} /> Frankfurter daily reference rates are indicative. Your transfer
+        <CircleHelp size={14} /> Market rates by Exchangerate.dev are indicative. Your transfer
         provider may offer different rates and charge fees.
       </p>
     </Shell>
@@ -682,6 +656,7 @@ function RateChart({
         <strong>
           {r ? format(r.rate) : '\u2014'} <small>{pair.split('/')[1]}</small>
         </strong>
+        <span className="chart-period">Historical reference</span>
         {change !== null && (
           <span className={change >= 0 ? 'positive' : 'negative'}>
             {change >= 0 ? '+' : ''}

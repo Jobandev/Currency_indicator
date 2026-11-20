@@ -19,14 +19,10 @@ export default function AlertEditor() {
   const [selectedChannel, setChannel] = useState<'email' | 'push' | 'both'>();
   const [pushEnabled, setPushEnabled] = useState(false);
   const [checkingChannels, setCheckingChannels] = useState(true);
-  const [intradayEnabled, setIntradayEnabled] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const pushConfigured = Boolean(import.meta.env.VITE_FIREBASE_VAPID_KEY);
   const defaultChannel = emailEnabled ? 'both' : 'push';
   const channel = selectedChannel ?? defaultChannel;
-  const [rateSource, setRateSource] = useState<'daily' | 'intraday'>(
-    params.get('source') === 'intraday' ? 'intraday' : 'daily',
-  );
   const { user } = useContext(Session);
   const { id } = useParams(),
     navigate = useNavigate(),
@@ -62,7 +58,7 @@ export default function AlertEditor() {
   useEffect(() => {
     let active = true;
     void Promise.allSettled([
-      api<{ emailEnabled?: boolean; intradayEnabled?: boolean }>('/health'),
+      api<{ emailEnabled?: boolean }>('/health'),
       api<{ enabled: boolean }>('/push-device'),
       api<{ notificationPreferences?: { email: boolean } }>('/profile'),
     ]).then(([health, devices, profile]) => {
@@ -72,7 +68,6 @@ export default function AlertEditor() {
           (profile.status !== 'fulfilled' ||
             profile.value.notificationPreferences?.email !== false),
       );
-      if (health.status === 'fulfilled') setIntradayEnabled(health.value.intradayEnabled === true);
       if (devices.status === 'fulfilled') setPushEnabled(devices.value.enabled);
       setCheckingChannels(false);
     });
@@ -87,7 +82,6 @@ export default function AlertEditor() {
           const found = a.find((a) => a.id === id);
           if (!found) throw new Error('Alert not found');
           setPair(found.pair);
-          setRateSource(found.rateSource || 'daily');
           setChannel(found.channel || 'email');
           setTarget(String(found.targetRate));
           setCondition(found.condition);
@@ -95,20 +89,14 @@ export default function AlertEditor() {
         })
         .catch((e) => setError(e.message));
   }, [id]);
-  const base = pair.split('/')[0];
   useEffect(() => {
     let live = true;
     setRates([]);
     setRateLoading(true);
     setError('');
-    (rateSource === 'intraday'
-      ? api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair)).then((rate) =>
-          rate && fresh(rate) ? [rate] : [],
-        )
-      : api<Rate[]>('/world-rates?base=' + base)
-    )
-      .then((rows) => {
-        if (live) setRates(rows);
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair))
+      .then((rate) => {
+        if (live) setRates(rate && fresh(rate) ? [rate] : []);
       })
       .catch((e) => {
         if (live) setError(friendly(e));
@@ -119,7 +107,8 @@ export default function AlertEditor() {
     return () => {
       live = false;
     };
-  }, [base, pair, rateSource]);
+  }, [pair]);
+  const base = pair.split('/')[0];
   const rate = rates.find((r) => r.currencyPair === pair),
     satisfied = rate && Number(target) > 0 && matches(rate.rate, Number(target), condition);
   async function submit(e: FormEvent) {
@@ -132,7 +121,7 @@ export default function AlertEditor() {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify({
           pair,
-          rateSource,
+          rateSource: 'intraday',
           channel,
           targetRate: Number(target),
           condition,
@@ -150,38 +139,6 @@ export default function AlertEditor() {
   return (
     <Shell>
       <Verification />
-      {(intradayEnabled || rateSource === 'intraday') && (
-        <div className="rate-source-control">
-          <label>
-            Monitoring source{' '}
-            <select
-              value={rateSource}
-              onChange={(event) =>
-                setRateSource(event.target.value === 'intraday' ? 'intraday' : 'daily')
-              }
-            >
-              <option value="daily">Daily reference</option>
-              <option value="intraday" disabled={!intradayEnabled}>
-                {intradayEnabled
-                  ? 'Same-day market rate (delayed)'
-                  : 'Same-day market rate (unavailable)'}
-              </option>
-            </select>
-          </label>
-          {rateSource === 'intraday' && !intradayEnabled && (
-            <p>Intraday rates are unavailable. Choose Daily reference to use the daily rate.</p>
-          )}
-          {rateSource === 'intraday' && intradayEnabled && (
-            <p>
-              <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a>. Observations are
-              delayed.{' '}
-              {!rateLoading &&
-                !rate &&
-                'An intraday observation is currently unavailable for this pair.'}
-            </p>
-          )}
-        </div>
-      )}
       <Link className="back-link" to="/dashboard">
         ← Back to overview
       </Link>
@@ -277,16 +234,16 @@ export default function AlertEditor() {
               <div>
                 <strong>{rate ? format(rate.rate) : '\u2014'}</strong>
                 <small>
-                  {rate
-                    ? (rate.kind ? 'Delayed observation ? ' : 'Reference dated ') +
-                      (rate.kind
-                        ? new Date(rate.providerTimestamp).toLocaleString('en-NZ')
-                        : new Date(rate.providerTimestamp).toLocaleDateString('en-NZ', {
-                            timeZone: 'UTC',
-                          }))
-                    : rateLoading
-                      ? 'Loading reference rate...'
-                      : 'Reference rate unavailable'}
+                  {rate ? (
+                    <>
+                      <a href="https://exchangerate.dev/">Exchangerate.dev</a> ?{' '}
+                      {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
+                    </>
+                  ) : rateLoading ? (
+                    'Loading market rate...'
+                  ) : (
+                    'Market rate unavailable'
+                  )}
                 </small>
               </div>
             </div>
@@ -352,7 +309,7 @@ export default function AlertEditor() {
             {satisfied && (
               <div className="info">
                 <strong>Your target is already satisfied.</strong>
-                <p>The latest reference rate meets your target. You can send this alert now.</p>
+                <p>The latest market rate meets your target. You can send this alert now.</p>
                 <label className="checkbox">
                   <input
                     type="checkbox"
@@ -442,7 +399,7 @@ export default function AlertEditor() {
                 <div>
                   <strong>Match the current rate</strong>
                   <p>
-                    Set your target equal to the current reference rate
+                    Set your target equal to the current market rate
                     {rate ? (
                       <>
                         {' '}

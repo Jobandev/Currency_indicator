@@ -924,21 +924,31 @@ it('can refresh intraday rates without an API key when keyless access is enabled
   const { refreshIntraday } = await import('../server/intraday');
   vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
   vi.stubEnv('EXCHANGERATE_DEV_API_KEY', '');
-  const upstream = vi
-    .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(
-      Response.json({
-        base: 'USD',
-        result: 'success',
-        rates: {},
-        effective_at: {},
-        sources: {},
-        stale: {},
-      }),
-    );
+  const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    Response.json({
+      base: 'USD',
+      result: 'success',
+      rates: {},
+      effective_at: {},
+      sources: {},
+      stale: {},
+    }),
+  );
   await refreshIntraday();
   expect(upstream).toHaveBeenCalledExactlyOnceWith(
     expect.stringContaining('/v1/latest/USD?symbols='),
     expect.objectContaining({ headers: undefined }),
   );
+});
+
+it('moves a legacy alert to the market source without evaluating a daily rate', async () => {
+  const id = await saveAlert('alice', { ...input, rateSource: 'daily' }, rate());
+  const qualified = { ...rate(), rate: input.targetRate };
+  await enqueue(id, qualified, true);
+  expect(records.get('alerts/' + id)).toMatchObject({ status: 'active', rateSource: 'daily' });
+  await enqueue(id, { ...qualified, kind: 'intraday' }, true);
+  expect(records.get('alerts/' + id)).toMatchObject({
+    status: 'processing',
+    rateSource: 'intraday',
+  });
 });

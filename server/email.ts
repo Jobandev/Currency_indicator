@@ -51,7 +51,7 @@ export function template(a: Alert, to: string): EmailPayload {
   const settings = new URL('/settings', url).href;
   const source =
     a.observation?.kind === 'intraday'
-      ? 'Rates by Exchangerate.dev (https://exchangerate.dev/), delayed observation at ' +
+      ? 'Rates by Exchangerate.dev (https://exchangerate.dev/), observed at ' +
         a.observation.providerTimestamp
       : 'Frankfurter daily reference rates';
   const sourceHtml = escapeHtml(source).replace(

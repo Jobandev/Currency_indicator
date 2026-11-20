@@ -10,7 +10,7 @@ import {
   Plus,
   ShieldCheck,
 } from 'lucide-react';
-import { PublicHeader, Footer, Currency, Session, useRates, format } from './ui';
+import { PublicHeader, Footer, Session } from './ui';
 import Converter from './Converter';
 import HistoryPreview from './HistoryPreview';
 import InstallAction from './InstallAction';
@@ -18,7 +18,6 @@ import RateAtmosphere from './RateAtmosphere';
 import ScrollReveal from './ScrollReveal';
 import ProviderLinks from './ProviderLinks';
 export default function Landing() {
-  const { rates, error, loading, load } = useRates();
   const { user } = useContext(Session);
   return (
     <>
@@ -49,29 +48,6 @@ export default function Landing() {
           </div>
         </section>
         <div className="rw-market">
-          <section className="rw-rate-strip" aria-label="Daily reference rates">
-            <div>
-              <h2>Daily reference rates</h2>
-            </div>
-            {loading ? (
-              <span className="skeleton">Loading reference rates…</span>
-            ) : error ? (
-              <div className="inline-error">
-                Rates unavailable <button onClick={load}>Try again</button>
-              </div>
-            ) : (
-              rates.slice(0, 3).map((r) => (
-                <div className="rw-strip-rate" key={r.currencyPair}>
-                  <Currency pair={r.currencyPair} />
-                  <strong>{format(r.rate)}</strong>
-                  <small>
-                    Daily reference ·{' '}
-                    {new Date(r.providerTimestamp).toLocaleDateString('en-NZ', { timeZone: 'UTC' })}
-                  </small>
-                </div>
-              ))
-            )}
-          </section>
           <HistoryPreview />
         </div>
         <ScrollReveal>
@@ -206,8 +182,8 @@ export default function Landing() {
               'Yes. RateWatch includes up to three active alerts. No payment details are required.',
             ],
             [
-              'Are these live exchange rates?',
-              'Frankfurter provides daily reference rates. Where available, exchangerate.dev provides delayed observations checked about every 30 minutes. Your transfer provider may quote a different rate.',
+              'Where do the exchange rates come from?',
+              'Exchangerate.dev provides market rates for conversions and alerts. Frankfurter provides the daily observations used in historical charts. Your transfer provider may quote a different rate.',
             ],
             [
               'Does my browser need to stay open?',

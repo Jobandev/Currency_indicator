@@ -147,7 +147,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="header-right">
             <span className="header-status">
-              <span className="green-dot" /> Daily reference rates
+              <span className="green-dot" /> Market rates
             </span>
             <Link aria-label="Notification history" to="/dashboard#notifications">
               <Bell size={19} />

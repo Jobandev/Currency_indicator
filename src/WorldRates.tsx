@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Search } from 'lucide-react';
 import { api } from './api';
 import { Currency, format, friendly } from './ui';
-import type { Rate } from '../shared/domain';
+import { CURRENCY_CODES, type Rate } from '../shared/domain';
 export default function WorldRates({
   onSelect,
   onRates,
@@ -22,7 +22,8 @@ export default function WorldRates({
     let live = true;
     api<{ code: string; name: string }[]>('/currencies')
       .then((rows) => {
-        if (live) setCurrencies(rows);
+        if (live)
+          setCurrencies(rows.filter((row) => CURRENCY_CODES.some((code) => code === row.code)));
       })
       .catch((e) => {
         if (live) setError(friendly(e));
@@ -37,7 +38,7 @@ export default function WorldRates({
     setError('');
     setRates([]);
     setPageSize(12);
-    api<Rate[]>('/world-rates?base=' + base)
+    api<Rate[]>('/world-rates?source=market&base=' + base)
       .then((rows) => {
         if (live) {
           setRates(rows);
@@ -66,9 +67,9 @@ export default function WorldRates({
       <div className="section-heading">
         <div>
           <h2>
-            Around the world <span className="badge">REFERENCE RATES</span>
+            Around the world <span className="badge">MARKET RATES</span>
           </h2>
-          <p>Explore 30 featured currencies. Select a card to view its history.</p>
+          <p>Select a currency to view its history.</p>
         </div>
         <button className="subtle" disabled={loading} onClick={() => setRefresh((n) => n + 1)}>
           <RefreshCw size={14} /> Refresh rates
@@ -102,6 +103,7 @@ export default function WorldRates({
         </label>
       </div>
       <p className="muted">
+        <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a> ?
         {loading
           ? 'Loading currencies...'
           : visible.length + ' available currencies | 1 ' + base + ' equals the amount shown'}
@@ -111,7 +113,7 @@ export default function WorldRates({
           {error} <button onClick={() => setRefresh((n) => n + 1)}>Retry</button>
         </div>
       ) : loading ? (
-        <div className="empty skeleton">Loading world reference rates...</div>
+        <div className="empty skeleton">Loading market rates...</div>
       ) : (
         <>
           <div className="rate-cards">
@@ -127,14 +129,12 @@ export default function WorldRates({
                   <small>{r.currencyPair.split('/')[1]}</small>
                 </div>
                 <div className="rate-meta muted">
-                  Reference date: {new Date(r.providerTimestamp).toLocaleDateString('en-NZ')}
+                  As of {new Date(r.providerTimestamp).toLocaleString('en-NZ')}
                 </div>
               </button>
             ))}
           </div>
-          {!visible.length && (
-            <div className="empty">No matching currencies. Try a currency code or name.</div>
-          )}
+          {!visible.length && <div className="empty">No market rates match your selection.</div>}
           {visible.length > pageSize && (
             <button className="button outline small" onClick={() => setPageSize((n) => n + 12)}>
               Show more currencies ({visible.length - pageSize} remaining)
