@@ -28,6 +28,8 @@ export default function InstallAction() {
     /iPhone|iPad|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+  const android = /Android/i.test(navigator.userAgent);
+
   useEffect(() => {
     const onPrompt = (event: Event) => {
       event.preventDefault();
@@ -73,11 +75,12 @@ export default function InstallAction() {
     }
   }
 
-  if (installed || (!prompt && !ios && !manual)) return null;
+  if (installed) return null;
 
   return (
-    <div className="install-widget">
+    <div className="install-widget" data-mobile-only={!prompt && !ios && !android && !manual}>
       <button
+        type="button"
         className="button install-trigger"
         aria-expanded={open}
         aria-controls={open ? 'install-popup' : undefined}
@@ -108,7 +111,9 @@ export default function InstallAction() {
             <p>
               {ios
                 ? 'In Safari, tap Share, then Add to Home Screen and Add.'
-                : 'Open your browser menu and look for the option to install RateWatch.'}
+                : android
+                  ? 'In Chrome, open the three-dot menu and choose Add to Home screen or Install app.'
+                  : 'Open your browser menu and look for the option to install RateWatch.'}
             </p>
           )}
         </section>

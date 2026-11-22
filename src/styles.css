@@ -2647,8 +2647,8 @@ legend {
 .install-widget {
   position: fixed;
   z-index: 40;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: calc(56px + env(safe-area-inset-bottom));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 .install-widget .install-trigger {
   min-height: 36px;
@@ -2659,6 +2659,17 @@ legend {
   color: #fff;
   font-size: 12px;
   box-shadow: 0 3px 12px #152d2830;
+}
+@media (min-width: 801px) and (pointer: fine) {
+  .install-widget[data-mobile-only='true'] {
+    display: none;
+  }
+}
+@media (max-width: 800px), (pointer: coarse) {
+  .install-widget .install-trigger {
+    min-height: 44px;
+    padding-inline: 12px;
+  }
 }
 .install-popup {
   position: absolute;
@@ -2691,8 +2702,8 @@ legend {
 .install-popup-heading button {
   display: grid;
   place-items: center;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
 }
 .rate-source-control {
   margin-block: 1rem;
