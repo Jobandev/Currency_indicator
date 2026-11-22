@@ -34,18 +34,16 @@ export async function currencies() {
   return catalog;
 }
 export async function worldRates(base: string) {
-  const list = await currencies();
-  if (!list.some((c) => c.code === base)) throw new Error('Unsupported base currency');
+  if (!featuredCodes.has(base)) throw new Error('Unsupported base currency');
   const existing = cache.get(base);
   if (existing && Date.now() - existing.at < 15 * 60000) return existing.rates;
   if (!pending.has(base))
     pending.set(
       base,
       (async () => {
-        const allowed = new Set(list.map((c) => c.code));
         const rows = rateSchema.parse(await request('rates?base=' + encodeURIComponent(base)));
         const rates = rows
-          .filter((r) => r.base === base && r.quote !== base && allowed.has(r.quote))
+          .filter((r) => r.base === base && r.quote !== base && featuredCodes.has(r.quote))
           .map((r) => ({
             currencyPair: r.base + '/' + r.quote,
             rate: r.rate,

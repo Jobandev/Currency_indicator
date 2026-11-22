@@ -983,21 +983,36 @@ describe('Exchangerate.dev market rate display', () => {
       .query({ pair: 'NZD/INR', include: 'last-recorded' })
       .expect(200);
     expect(display.body).toEqual(original);
+    expect(upstream).toHaveBeenCalledTimes(2);
+    upstream.mockResolvedValueOnce(
+      Response.json([
+        { base: 'NZD', quote: 'INR', date: '2025-01-04', rate: 99 },
+        { base: 'NZD', quote: 'AUD', date: '2025-01-04', rate: 0.9 },
+      ]),
+    );
     const world = await request(app)
       .get('/api/world-rates')
       .query({ base: 'NZD', source: 'display' })
       .expect(200);
-    expect(world.body).toContainEqual(original);
-    expect(upstream).toHaveBeenCalledTimes(2);
+    expect(world.body.filter((rate: Rate) => rate.currencyPair === 'NZD/INR')).toEqual([original]);
+    expect(world.body).toContainEqual(
+      expect.objectContaining({ currencyPair: 'NZD/AUD', rate: 0.9 }),
+    );
+    expect(upstream).toHaveBeenCalledTimes(3);
   });
 
-  it('does not call another provider for a pair with no recorded market quote', async () => {
-    const upstream = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('unexpected fetch'));
+  it('uses Frankfurter for a pair with no recorded market quote', async () => {
+    const upstream = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        Response.json([{ base: 'CAD', quote: 'INR', date: '2025-01-03', rate: 60 }]),
+      );
     const response = await request(app)
       .get('/api/observed-rate')
-      .query({ pair: 'NZD/INR', include: 'last-recorded' })
+      .query({ pair: 'CAD/INR', include: 'last-recorded' })
       .expect(200);
-    expect(response.body).toBeNull();
-    expect(upstream).not.toHaveBeenCalled();
+    expect(response.body).toMatchObject({ currencyPair: 'CAD/INR', rate: 60 });
+    expect(response.body.kind).toBeUndefined();
+    expect(upstream).toHaveBeenCalledTimes(1);
   });
 });

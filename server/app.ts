@@ -91,6 +91,15 @@ app.use(
   rateLimit({ windowMs: 60000, limit: 90, standardHeaders: 'draft-8', legacyHeaders: false }),
 );
 app.get('/api/currencies', async (_req, res) => res.json(await currencies()));
+async function displayRates(base: string, pairs: string[]) {
+  const market = adminReady ? await intradayRates(pairs, true).catch(() => []) : [];
+  const recorded = new Set(market.map((rate) => rate.currencyPair));
+  const missing = new Set(pairs.filter((pair) => !recorded.has(pair)));
+  if (!missing.size) return market;
+  const reference = await worldRates(base).catch(() => []);
+  return [...market, ...reference.filter((rate) => missing.has(rate.currencyPair))];
+}
+
 app.get('/api/world-rates', async (req, res) => {
   const base = z
     .string()
@@ -101,7 +110,7 @@ app.get('/api/world-rates', async (req, res) => {
   if (req.query.source === 'display') {
     res.set('Cache-Control', 'no-store');
     const pairs = CURRENCY_CODES.filter((code) => code !== base).map((code) => base + '/' + code);
-    return res.json(adminReady ? await intradayRates(pairs, true) : []);
+    return res.json(await displayRates(base, pairs));
   }
   if (req.query.source === 'market') {
     res.set('Cache-Control', 'no-store');
@@ -119,7 +128,7 @@ app.get('/api/observed-rate', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const pair = pairSchema.parse(req.query.pair);
   if (req.query.include === 'last-recorded' || req.query.fallback === 'reference') {
-    const [rate] = adminReady ? await intradayRates([pair], true) : [];
+    const [rate] = await displayRates(pair.split('/')[0], [pair]);
     return res.json(rate ?? null);
   }
   if (!adminReady || !intradayConfigured()) return res.json(null);
