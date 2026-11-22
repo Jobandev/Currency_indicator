@@ -6,10 +6,16 @@ interface InstallEvent extends Event {
   userChoice: Promise<{ outcome: string }>;
 }
 
+declare global {
+  interface Window {
+    rateWatchInstallPrompt?: InstallEvent;
+  }
+}
+
 const dismissedKey = 'ratewatch-install-popup-dismissed';
 
 export default function InstallAction() {
-  const [prompt, setPrompt] = useState<InstallEvent>();
+  const [prompt, setPrompt] = useState(() => window.rateWatchInstallPrompt);
   const [open, setOpen] = useState(() => {
     try {
       return sessionStorage.getItem(dismissedKey) !== 'true';
@@ -29,6 +35,7 @@ export default function InstallAction() {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   const android = /Android/i.test(navigator.userAgent);
+  const androidChrome = android && /\bChrome\//.test(navigator.userAgent);
 
   useEffect(() => {
     const onPrompt = (event: Event) => {
@@ -37,10 +44,12 @@ export default function InstallAction() {
     };
     const onInstalled = () => {
       setInstalled(true);
+      delete window.rateWatchInstallPrompt;
       setPrompt(undefined);
     };
     window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
+    if (window.rateWatchInstallPrompt) setPrompt(window.rateWatchInstallPrompt);
     if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       void navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
@@ -71,7 +80,8 @@ export default function InstallAction() {
     } finally {
       setManual(true);
       setInstalling(false);
-      setPrompt(undefined);
+      if (window.rateWatchInstallPrompt === prompt) delete window.rateWatchInstallPrompt;
+      setPrompt(window.rateWatchInstallPrompt);
     }
   }
 
@@ -88,7 +98,7 @@ export default function InstallAction() {
         onClick={() => {
           if (prompt) {
             void install();
-          } else if (open) {
+          } else if (open && (!androidChrome || manual)) {
             dismiss();
           } else {
             setOpen(true);
@@ -115,6 +125,17 @@ export default function InstallAction() {
               >
                 Install app
               </button>
+            </>
+          ) : androidChrome && !manual ? (
+            <>
+              <p>
+                Chrome is checking whether RateWatch can be installed. The install confirmation will
+                be available here when Chrome is ready.
+              </p>
+              <details>
+                <summary>Install manually</summary>
+                <p>Open the Chrome menu and choose Add to Home screen or Install app.</p>
+              </details>
             </>
           ) : (
             <p>
