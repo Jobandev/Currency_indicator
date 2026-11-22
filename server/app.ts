@@ -1,4 +1,4 @@
-import { intradayConfigured } from './intraday.js';
+import { intradayConfigured, intradayRates } from './intraday.js';
 import { digestSchedule, unsubscribeDigest } from './digests.js';
 import { pushDevicesFor, setPushDevice } from './push.js';
 import { currencies, worldRates } from './world.js';
@@ -101,7 +101,7 @@ app.get('/api/world-rates', async (req, res) => {
   if (req.query.source === 'display') {
     res.set('Cache-Control', 'no-store');
     const pairs = CURRENCY_CODES.filter((code) => code !== base).map((code) => base + '/' + code);
-    return res.json(await displayRates(base, pairs));
+    return res.json(adminReady ? await intradayRates(pairs, true) : []);
   }
   if (req.query.source === 'market') {
     res.set('Cache-Control', 'no-store');
@@ -115,30 +115,11 @@ app.get('/api/world-rates', async (req, res) => {
   }
   res.json(await worldRates(base));
 });
-async function displayRates(base: string, pairs: string[]) {
-  const market =
-    intradayConfigured() && adminReady
-      ? await getAlertRates(pairs, 'intraday').catch(() => [])
-      : [];
-  const live = market.filter((rate) => fresh(rate));
-  if (live.length === pairs.length) return live;
-  const known = new Map(market.map((rate) => [rate.currencyPair, rate]));
-  const livePairs = new Set(live.map((rate) => rate.currencyPair));
-  const reference = await worldRates(base, true).catch(() => []);
-  for (const rate of reference) {
-    if (!pairs.includes(rate.currencyPair) || livePairs.has(rate.currencyPair)) continue;
-    const previous = known.get(rate.currencyPair);
-    if (!previous || Date.parse(rate.providerTimestamp) > Date.parse(previous.providerTimestamp))
-      known.set(rate.currencyPair, rate);
-  }
-  return [...known.values()];
-}
-
 app.get('/api/observed-rate', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const pair = pairSchema.parse(req.query.pair);
-  if (req.query.fallback === 'reference') {
-    const [rate] = await displayRates(pair.split('/')[0], [pair]);
+  if (req.query.include === 'last-recorded' || req.query.fallback === 'reference') {
+    const [rate] = adminReady ? await intradayRates([pair], true) : [];
     return res.json(rate ?? null);
   }
   if (!adminReady || !intradayConfigured()) return res.json(null);

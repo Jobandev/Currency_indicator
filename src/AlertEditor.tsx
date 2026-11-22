@@ -96,7 +96,7 @@ export default function AlertEditor() {
     setRates([]);
     setRateLoading(true);
     setError('');
-    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference')
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&include=last-recorded')
       .then((rate) => {
         if (live) setRates(rate ? [rate] : []);
       })

@@ -35,6 +35,22 @@ export function observedRate(pair: string, data: Snapshot, fetchedAt: number): R
   };
 }
 
+const supportedPairs = CURRENCY_CODES.flatMap((base) =>
+  CURRENCY_CODES.filter((quote) => base !== quote).map((quote) => base + '/' + quote),
+);
+
+function rememberRates(rates: Map<string, Rate>, data: Snapshot, fetchedAt: number) {
+  for (const pair of supportedPairs) {
+    const rate = observedRate(pair, data, fetchedAt);
+    const previous = rates.get(pair);
+    if (
+      rate &&
+      (!previous || Date.parse(rate.providerTimestamp) >= Date.parse(previous.providerTimestamp))
+    )
+      rates.set(pair, rate);
+  }
+}
+
 const record = () => db.collection('system').doc('intradayRates');
 
 export function intradayConfigured() {
@@ -75,15 +91,36 @@ export async function refreshIntraday(now = Date.now()) {
   }
   if (!response.ok) throw new Error('Intraday provider returned ' + response.status);
   const data = snapshot.parse(await response.json());
-  await ref.set({ data, fetchedAt: Date.now() }, { merge: true });
+  const fetchedAt = Date.now();
+  await db.runTransaction(async (t) => {
+    const previous = (await t.get(ref)).data();
+    if (previous?.fetchedAt > fetchedAt) return;
+    const rates = new Map<string, Rate>(
+      (previous?.lastMarketRates as Rate[] | undefined)?.map((rate) => [rate.currencyPair, rate]),
+    );
+    if (previous?.data) rememberRates(rates, previous.data, previous.fetchedAt);
+    rememberRates(rates, data, fetchedAt);
+    t.set(ref, { ...previous, data, fetchedAt, lastMarketRates: [...rates.values()] });
+  });
 }
 
-export async function intradayRates(pairs: string[]) {
+export async function intradayRates(pairs: string[], includeLastRecorded = false) {
   if (!pairs.length) return [];
   const entry = (await record().get()).data();
   if (!entry?.data) return [];
+  const saved = new Map<string, Rate>(
+    includeLastRecorded
+      ? (entry.lastMarketRates as Rate[] | undefined)?.map((rate) => [rate.currencyPair, rate])
+      : undefined,
+  );
   return pairs.flatMap((pair) => {
-    const rate = observedRate(pair, entry.data, entry.fetchedAt);
+    const current = observedRate(pair, entry.data, entry.fetchedAt);
+    const previous = saved.get(pair);
+    const rate =
+      current &&
+      (!previous || Date.parse(current.providerTimestamp) >= Date.parse(previous.providerTimestamp))
+        ? current
+        : previous;
     return rate ? [rate] : [];
   });
 }

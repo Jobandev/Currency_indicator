@@ -263,7 +263,5 @@ export function HeroNote() {
 }
 
 export function displayRateLabel(rate: Rate) {
-  return rate.kind === 'intraday'
-    ? (fresh(rate) ? 'Market rate' : 'Last recorded market rate') + ' · Exchangerate.dev'
-    : 'Daily reference rate · Frankfurter';
+  return (fresh(rate) ? 'Market rate' : 'Last recorded market rate') + ' by Exchangerate.dev';
 }

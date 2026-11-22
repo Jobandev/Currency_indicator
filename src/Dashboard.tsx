@@ -85,7 +85,7 @@ export default function Dashboard() {
           void Promise.allSettled(
             intraday.map((pair) =>
               api<Rate | null>(
-                '/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference',
+                '/observed-rate?pair=' + encodeURIComponent(pair) + '&include=last-recorded',
               ),
             ),
           ).then((results) => {

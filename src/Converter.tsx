@@ -24,7 +24,7 @@ export default function Converter({
   useEffect(() => {
     if (base === quote) return;
     const controller = new AbortController();
-    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference', {
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&include=last-recorded', {
       signal: controller.signal,
     })
       .then((rate) => {
