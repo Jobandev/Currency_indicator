@@ -6,6 +6,9 @@ class Ref {
   get id() {
     return this.path.split('/').at(-1)!;
   }
+  collection(name: string) {
+    return new Query(this.path + '/' + name);
+  }
   async get() {
     return snap(this);
   }
@@ -71,7 +74,7 @@ class Query {
   }
   async get() {
     let docs = [...records.keys()]
-      .filter((p) => p.startsWith(this.name + '/'))
+      .filter((p) => p.startsWith(this.name + '/') && !p.slice(this.name.length + 1).includes('/'))
       .map((p) => snap(new Ref(p)))
       .filter((d) =>
         this.filters.every(([f, op, v]) =>

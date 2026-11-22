@@ -1016,3 +1016,68 @@ describe('Exchangerate.dev market rate display', () => {
     expect(upstream).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('private support chat', () => {
+  const guestKey = 'a4085945-04a9-4e66-893e-6d02c75efc98';
+  const otherKey = 'f8907a71-63fd-4936-91d5-384c8e166593';
+  function configureSupport() {
+    vi.stubEnv('SUPPORT_INBOX_EMAIL', 'owner@example.test');
+    mocks.verifyIdToken.mockImplementation(async (value: string) => ({
+      uid: value,
+      email: value === 'outsider' ? 'outsider@example.test' : 'owner@example.test',
+      email_verified: value !== 'unverified',
+    }));
+  }
+
+  it('lets guests and the verified owner exchange messages without exposing the thread to another guest', async () => {
+    configureSupport();
+    const first = await request(app)
+      .post('/api/support/chat')
+      .set('X-Support-Key', guestKey)
+      .send({ text: 'I have a question about alerts.' })
+      .expect(201);
+    expect(first.body.from).toBe('visitor');
+    const inbox = await request(app)
+      .get('/api/support/inbox')
+      .set('Authorization', 'Bearer owner')
+      .expect(200);
+    expect(inbox.body).toHaveLength(1);
+    const path = '/api/support/inbox/' + inbox.body[0].id;
+    await request(app)
+      .post(path)
+      .set('Authorization', 'Bearer owner')
+      .send({ text: 'How can I help?' })
+      .expect(201);
+    const visitor = await request(app)
+      .get('/api/support/chat')
+      .set('X-Support-Key', guestKey)
+      .expect(200);
+    expect(visitor.body.map((message: { from: string }) => message.from)).toEqual([
+      'visitor',
+      'support',
+    ]);
+    const other = await request(app)
+      .get('/api/support/chat')
+      .set('X-Support-Key', otherKey)
+      .expect(200);
+    expect(other.body).toEqual([]);
+  });
+
+  it('rejects unauthenticated, unverified, and other accounts from the inbox', async () => {
+    configureSupport();
+    await request(app).get('/api/support/inbox').expect(401);
+    await request(app)
+      .get('/api/support/inbox')
+      .set('Authorization', 'Bearer unverified')
+      .expect(403);
+    await request(app)
+      .get('/api/support/inbox')
+      .set('Authorization', 'Bearer outsider')
+      .expect(403);
+    await request(app)
+      .post('/api/support/chat')
+      .set('X-Support-Key', guestKey)
+      .send({ from: 'support', text: 'Forged reply' })
+      .expect(400);
+  });
+});

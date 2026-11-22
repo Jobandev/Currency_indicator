@@ -1,3 +1,4 @@
+import { supportChat, supportInbox } from './support.js';
 import { intradayConfigured, intradayRates } from './intraday.js';
 import { digestSchedule, unsubscribeDigest } from './digests.js';
 import { pushDevicesFor, setPushDevice } from './push.js';
@@ -161,6 +162,7 @@ app.post('/api/digests/unsubscribe', async (req, res) => {
     throw new HttpError(400, 'Invalid unsubscribe link');
   res.json({ ok: true });
 });
+app.use('/api/support/chat', supportChat);
 app.use('/api', async (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   if (!adminReady)
@@ -179,6 +181,7 @@ app.use('/api', async (req, res, next) => {
   }
   next();
 });
+app.use('/api/support/inbox', supportInbox);
 app.put('/api/push-device', async (req, res) => {
   const input = z
     .object({ token: z.string().min(30).max(4096), enabled: z.boolean() })

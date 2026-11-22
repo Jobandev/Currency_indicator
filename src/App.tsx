@@ -15,6 +15,8 @@ import { Footer, PublicHeader, Session, Toast } from './ui';
 import { policyRedirects, publicPage } from '../shared/public-pages';
 import Landing from './Landing';
 import InstallAction from './InstallAction';
+import { SupportChat } from './Support';
+const SupportInbox = lazy(() => import('./SupportInbox'));
 const Unsubscribe = lazy(() => import('./Unsubscribe'));
 const CurrencyPair = lazy(() => import('./CurrencyPair'));
 const Planner = lazy(() => import('./Planner'));
@@ -96,6 +98,14 @@ export default function App() {
             <Route path="/rates/:pair" element={<CurrencyPair />} />
             <Route path="/charts" element={<Charts />} />
             <Route path="/planner" element={<Planner />} />
+            <Route
+              path="/support/inbox"
+              element={
+                <Protected>
+                  <SupportInbox />
+                </Protected>
+              }
+            />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/login" element={<AuthPage mode="login" />} />
             <Route path="/register" element={<AuthPage mode="register" />} />
@@ -159,7 +169,10 @@ export default function App() {
             />
           </Routes>
         </Suspense>
-        <InstallAction />
+        <div className="floating-actions">
+          {!location.pathname.startsWith('/support/inbox') && <SupportChat />}
+          <InstallAction />
+        </div>
         {toast && (
           <div className="toast" role="status">
             <Bell size={17} />

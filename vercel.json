@@ -17,7 +17,7 @@
       "dest": "/api/index"
     },
     {
-      "src": "/(?:dashboard|settings|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
+      "src": "/(?:dashboard|settings|support/inbox|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
       "headers": { "X-Robots-Tag": "noindex, nofollow" },
       "continue": true
     },
@@ -35,7 +35,7 @@
     },
     { "src": "/", "dest": "/index.html" },
     {
-      "src": "/(?:dashboard|settings|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
+      "src": "/(?:dashboard|settings|support/inbox|alerts/(?:new|[^/]+/edit)|login|register|forgot-password|unsubscribe)/?",
       "dest": "/app-shell.html"
     },
     { "src": "/.*", "status": 404, "dest": "/app-shell.html" }

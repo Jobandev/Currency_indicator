@@ -25,9 +25,10 @@ let googleRedirectResult: ReturnType<typeof getRedirectResult> | undefined;
 export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
   const [params] = useSearchParams();
   const next = params.get('next') || '';
-  const destination = /^\/(?:dashboard|settings|alerts\/(?:new|[\w-]+\/edit))(?:[?#]|$)/.test(next)
-    ? next
-    : '/dashboard';
+  const destination =
+    /^\/(?:dashboard|settings|support\/inbox|alerts\/(?:new|[\w-]+\/edit))(?:[?#]|$)/.test(next)
+      ? next
+      : '/dashboard';
   const { user } = useContext(Session),
     toast = useContext(Toast),
     navigate = useNavigate(),
