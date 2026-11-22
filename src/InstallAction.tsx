@@ -67,7 +67,7 @@ export default function InstallAction() {
       if ((await prompt.userChoice).outcome === 'accepted') setInstalled(true);
       dismiss();
     } catch {
-      // Keep the popup open so the visitor can use the browser's install menu.
+      setOpen(true);
     } finally {
       setManual(true);
       setInstalling(false);
@@ -82,9 +82,18 @@ export default function InstallAction() {
       <button
         type="button"
         className="button install-trigger"
-        aria-expanded={open}
-        aria-controls={open ? 'install-popup' : undefined}
-        onClick={open ? dismiss : () => setOpen(true)}
+        disabled={installing}
+        aria-expanded={prompt ? undefined : open}
+        aria-controls={!prompt && open ? 'install-popup' : undefined}
+        onClick={() => {
+          if (prompt) {
+            void install();
+          } else if (open) {
+            dismiss();
+          } else {
+            setOpen(true);
+          }
+        }}
       >
         <Download size={15} aria-hidden="true" /> Install
       </button>
@@ -110,7 +119,7 @@ export default function InstallAction() {
           ) : (
             <p>
               {ios
-                ? 'In Safari, tap Share, then Add to Home Screen and Add.'
+                ? 'In Safari, tap Share, then Add to Home Screen. Turn on Open as Web App if shown, then tap Add.'
                 : android
                   ? 'In Chrome, open the three-dot menu and choose Add to Home screen or Install app.'
                   : 'Open your browser menu and look for the option to install RateWatch.'}
