@@ -126,7 +126,9 @@ async function displayRates(base: string, pairs: string[]) {
   const livePairs = new Set(live.map((rate) => rate.currencyPair));
   const reference = await worldRates(base, true).catch(() => []);
   for (const rate of reference) {
-    if (pairs.includes(rate.currencyPair) && !livePairs.has(rate.currencyPair))
+    if (!pairs.includes(rate.currencyPair) || livePairs.has(rate.currencyPair)) continue;
+    const previous = known.get(rate.currencyPair);
+    if (!previous || Date.parse(rate.providerTimestamp) > Date.parse(previous.providerTimestamp))
       known.set(rate.currencyPair, rate);
   }
   return [...known.values()];

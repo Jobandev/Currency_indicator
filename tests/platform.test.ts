@@ -971,7 +971,13 @@ describe('display exchange rate fallback', () => {
     vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
     vi.stubEnv('FIREBASE_PROJECT_ID', 'demo-ratewatch');
     mocks.latest.mockResolvedValue([
-      { ...rate(), currencyPair: 'CAD/INR', kind: 'intraday', fetchedAt: Date.now() - 3600000 },
+      {
+        ...rate(),
+        currencyPair: 'CAD/INR',
+        kind: 'intraday',
+        providerTimestamp: '2025-01-01T21:00:00Z',
+        fetchedAt: Date.now() - 3600000,
+      },
     ]);
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       Response.json([{ base: 'CAD', quote: 'INR', date: '2025-01-02', rate: 62 }]),
@@ -988,6 +994,27 @@ describe('display exchange rate fallback', () => {
       .query({ pair: 'CAD/INR' })
       .expect(200);
     expect(strict.body).toBeNull();
+  });
+
+  it('keeps the last market quote when it is newer than the daily reference', async () => {
+    vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
+    const lastMarket = {
+      ...rate(),
+      currencyPair: 'EUR/INR',
+      kind: 'intraday',
+      provider: 'exchangerate.dev',
+      providerTimestamp: '2025-01-03T21:00:00Z',
+      fetchedAt: Date.parse('2025-01-03T21:30:00Z'),
+    };
+    mocks.latest.mockResolvedValue([lastMarket]);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json([{ base: 'EUR', quote: 'INR', date: '2025-01-03', rate: 90 }]),
+    );
+    const response = await request(app)
+      .get('/api/observed-rate')
+      .query({ pair: lastMarket.currencyPair, fallback: 'reference' })
+      .expect(200);
+    expect(response.body).toEqual(lastMarket);
   });
 
   it('serves the persisted snapshot if both providers fail after a cold start', async () => {
