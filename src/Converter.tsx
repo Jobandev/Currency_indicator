@@ -1,8 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CURRENCY_CODES, fresh, type Rate } from '../shared/domain';
+import { CURRENCY_CODES, type Rate } from '../shared/domain';
 import { api } from './api';
-import { format } from './ui';
+import { displayRateLabel, format } from './ui';
 
 export default function Converter({
   initialBase = 'NZD',
@@ -24,12 +24,11 @@ export default function Converter({
   useEffect(() => {
     if (base === quote) return;
     const controller = new AbortController();
-    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair), {
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference', {
       signal: controller.signal,
     })
       .then((rate) => {
-        if (!controller.signal.aborted)
-          setResult({ pair, rate: rate && fresh(rate) ? rate : null });
+        if (!controller.signal.aborted) setResult({ pair, rate });
       })
       .catch(() => {
         if (!controller.signal.aborted) setResult({ pair, rate: null });
@@ -124,7 +123,7 @@ export default function Converter({
         ) : rate === undefined ? (
           <p>Loading rate…</p>
         ) : !rate ? (
-          <p>Market rate unavailable. Try again when a fresh rate is available.</p>
+          <p>No rate available for this pair.</p>
         ) : (
           <>
             <strong>
@@ -140,7 +139,7 @@ export default function Converter({
               1 {base} = {format(rate.rate, 6)} {quote}
             </p>
             <small>
-              <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a> ? {date}
+              {displayRateLabel(rate)} · {date}
             </small>
           </>
         )}

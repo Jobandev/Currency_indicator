@@ -25,6 +25,7 @@ import {
 import { api } from './api';
 import {
   Currency,
+  displayRateLabel,
   format,
   friendly,
   SecurityNote,
@@ -34,7 +35,7 @@ import {
   useRates,
   Verification,
 } from './ui';
-import { fresh, pairSchema, type Alert, type Notice, type Rate } from '../shared/domain';
+import { pairSchema, type Alert, type Notice, type Rate } from '../shared/domain';
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,7 +84,9 @@ export default function Dashboard() {
           const intraday = [...new Set(a.value.map((alert) => alert.pair))];
           void Promise.allSettled(
             intraday.map((pair) =>
-              api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair)),
+              api<Rate | null>(
+                '/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference',
+              ),
             ),
           ).then((results) => {
             setObservations(
@@ -293,7 +296,9 @@ export default function Dashboard() {
             <button
               type="button"
               className="subtle clear-completed-alerts"
-              aria-label={clearingCompleted ? 'Deleting completed alerts' : 'Delete completed alerts'}
+              aria-label={
+                clearingCompleted ? 'Deleting completed alerts' : 'Delete completed alerts'
+              }
               title="Delete completed alerts"
               disabled={clearingCompleted || dataLoading}
               onClick={() => void clearCompletedAlerts()}
@@ -337,7 +342,7 @@ export default function Dashboard() {
                 <tr role="row">
                   <th scope="col">Currency pair</th>
                   <th scope="col">Your target</th>
-                  <th scope="col">Market rate</th>
+                  <th scope="col">Rate</th>
                   <th scope="col">Status</th>
                   <th scope="col">
                     <span className="sr-only">Actions</span>
@@ -361,14 +366,15 @@ export default function Dashboard() {
                     </td>
                     <td role="cell">
                       <span className="alert-mobile-label" aria-hidden="true">
-                        Market rate
+                        Rate
                       </span>
                       {(() => {
                         const rate = currentRates.find((entry) => entry.currencyPair === a.pair);
-                        return rate && fresh(rate) ? (
+                        return rate ? (
                           <>
                             {format(rate.rate)}
                             <small>
+                              {displayRateLabel(rate)} ·{' '}
                               {new Date(rate.providerTimestamp).toLocaleString('en-NZ')}
                             </small>
                           </>
@@ -461,7 +467,7 @@ export default function Dashboard() {
       <WorldRates onSelect={setPair} onRates={setMarketRates} />
       <div className="chart-calculator">
         <RateChart pair={pair} setPair={setPair} rates={rates} />
-        <Calculator rates={currentRates.filter((rate) => fresh(rate))} />
+        <Calculator rates={currentRates} />
       </div>
       <section className="card chart-card" aria-labelledby="favorites-heading">
         <h2 id="favorites-heading">Favourite pairs</h2>
@@ -580,8 +586,8 @@ export default function Dashboard() {
         )}
       </section>
       <p className="disclaimer">
-        <CircleHelp size={14} /> Market rates by Exchangerate.dev are indicative. Your transfer
-        provider may offer different rates and charge fees.
+        <CircleHelp size={14} /> Displayed exchange rates are indicative. Your transfer provider may
+        offer different rates and charge fees.
       </p>
     </Shell>
   );
@@ -827,7 +833,7 @@ function Calculator({ rates }: { rates: Rate[] }) {
       </div>
       <small className="muted">
         {rate ? '1 ' + base + ' = ' + format(rate.rate) + ' ' + quote : 'Rate unavailable'} ·
-        excludes fees
+        {rate && <>{displayRateLabel(rate)} · </>}excludes fees
       </small>
       <Link className="button outline full" to="/alerts/new">
         Get a rate alert <Bell size={15} />

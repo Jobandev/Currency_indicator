@@ -96,8 +96,13 @@ app.get('/api/world-rates', async (req, res) => {
     .string()
     .regex(/^[A-Z]{3}$/)
     .parse(req.query.base);
-  if (!(await currencies()).some((c) => c.code === base))
+  if (!CURRENCY_CODES.some((code) => code === base))
     throw new HttpError(400, 'Unsupported base currency');
+  if (req.query.source === 'display') {
+    res.set('Cache-Control', 'no-store');
+    const pairs = CURRENCY_CODES.filter((code) => code !== base).map((code) => base + '/' + code);
+    return res.json(await displayRates(base, pairs));
+  }
   if (req.query.source === 'market') {
     res.set('Cache-Control', 'no-store');
     if (!intradayConfigured() || !adminReady || !CURRENCY_CODES.some((code) => code === base))
@@ -110,9 +115,30 @@ app.get('/api/world-rates', async (req, res) => {
   }
   res.json(await worldRates(base));
 });
+async function displayRates(base: string, pairs: string[]) {
+  const market =
+    intradayConfigured() && adminReady
+      ? await getAlertRates(pairs, 'intraday').catch(() => [])
+      : [];
+  const live = market.filter((rate) => fresh(rate));
+  if (live.length === pairs.length) return live;
+  const known = new Map(market.map((rate) => [rate.currencyPair, rate]));
+  const livePairs = new Set(live.map((rate) => rate.currencyPair));
+  const reference = await worldRates(base, true).catch(() => []);
+  for (const rate of reference) {
+    if (pairs.includes(rate.currencyPair) && !livePairs.has(rate.currencyPair))
+      known.set(rate.currencyPair, rate);
+  }
+  return [...known.values()];
+}
+
 app.get('/api/observed-rate', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const pair = pairSchema.parse(req.query.pair);
+  if (req.query.fallback === 'reference') {
+    const [rate] = await displayRates(pair.split('/')[0], [pair]);
+    return res.json(rate ?? null);
+  }
   if (!adminReady || !intradayConfigured()) return res.json(null);
   const [rate] = await getAlertRates([pair], 'intraday');
   return res.json(rate && fresh(rate) ? rate : null);

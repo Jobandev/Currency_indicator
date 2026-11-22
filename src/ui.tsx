@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { signOut, sendEmailVerification, type User } from 'firebase/auth';
 import {
@@ -18,7 +18,7 @@ import {
 import { auth } from './firebase';
 import { api } from './api';
 import PublicNavigation, { RateWatchMark } from './PublicNavigation';
-import type { Rate } from '../shared/domain';
+import { fresh, type Rate } from '../shared/domain';
 export const Session = createContext<{ user: User | null; loading: boolean }>({
   user: null,
   loading: true,
@@ -260,4 +260,10 @@ export function HeroNote() {
       <Sparkles size={18} />
     </div>
   );
+}
+
+export function displayRateLabel(rate: Rate) {
+  return rate.kind === 'intraday'
+    ? (fresh(rate) ? 'Market rate' : 'Last recorded market rate') + ' · Exchangerate.dev'
+    : 'Daily reference rate · Frankfurter';
 }

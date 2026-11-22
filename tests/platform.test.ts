@@ -952,3 +952,56 @@ it('moves a legacy alert to the market source without evaluating a daily rate', 
     rateSource: 'intraday',
   });
 });
+
+describe('display exchange rate fallback', () => {
+  it('uses fresh market data without calling Frankfurter', async () => {
+    vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
+    const market = { ...rate(), kind: 'intraday', provider: 'exchangerate.dev' };
+    mocks.latest.mockResolvedValue([market]);
+    const upstream = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('unexpected fetch'));
+    const response = await request(app)
+      .get('/api/observed-rate')
+      .query({ pair: market.currencyPair, fallback: 'reference' })
+      .expect(200);
+    expect(response.body).toEqual(market);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it('shows a daily rate during a live outage and preserves the live-only contract', async () => {
+    vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
+    vi.stubEnv('FIREBASE_PROJECT_ID', 'demo-ratewatch');
+    mocks.latest.mockResolvedValue([
+      { ...rate(), currencyPair: 'CAD/INR', kind: 'intraday', fetchedAt: Date.now() - 3600000 },
+    ]);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json([{ base: 'CAD', quote: 'INR', date: '2025-01-02', rate: 62 }]),
+    );
+    const display = await request(app)
+      .get('/api/observed-rate')
+      .query({ pair: 'CAD/INR', fallback: 'reference' })
+      .expect(200);
+    expect(display.body).toMatchObject({ rate: 62, providerTimestamp: '2025-01-02T00:00:00Z' });
+    expect(display.body.kind).toBeUndefined();
+    expect(records.get('worldRateSnapshots/CAD').rates).toEqual([display.body]);
+    const strict = await request(app)
+      .get('/api/observed-rate')
+      .query({ pair: 'CAD/INR' })
+      .expect(200);
+    expect(strict.body).toBeNull();
+  });
+
+  it('serves the persisted snapshot if both providers fail after a cold start', async () => {
+    vi.stubEnv('EXCHANGERATE_DEV_KEYLESS', 'true');
+    vi.stubEnv('FIREBASE_PROJECT_ID', 'demo-ratewatch');
+    mocks.latest.mockRejectedValue(new Error('market feed unavailable'));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 503 }));
+    const saved = { ...rate(), currencyPair: 'AUD/INR', fetchedAt: Date.now() - 86400000 };
+    records.set('worldRateSnapshots/AUD', { at: saved.fetchedAt, rates: [saved] });
+    const response = await request(app)
+      .get('/api/world-rates')
+      .query({ base: 'AUD', source: 'display' })
+      .expect(200);
+    expect(response.body).toEqual([saved]);
+    await request(app).get('/api/world-rates').query({ base: 'AUD' }).expect(503);
+  });
+});

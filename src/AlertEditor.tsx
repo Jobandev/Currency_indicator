@@ -12,7 +12,16 @@ import {
 } from '../shared/domain';
 import { api } from './api';
 import PushSettings from './PushSettings';
-import { Currency, format, friendly, Session, Shell, Toast, Verification } from './ui';
+import {
+  Currency,
+  displayRateLabel,
+  format,
+  friendly,
+  Session,
+  Shell,
+  Toast,
+  Verification,
+} from './ui';
 export default function AlertEditor() {
   const [params] = useSearchParams();
   const requestedImmediate = params.get('notify') === 'now';
@@ -87,9 +96,9 @@ export default function AlertEditor() {
     setRates([]);
     setRateLoading(true);
     setError('');
-    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair))
+    api<Rate | null>('/observed-rate?pair=' + encodeURIComponent(pair) + '&fallback=reference')
       .then((rate) => {
-        if (live) setRates(rate && fresh(rate) ? [rate] : []);
+        if (live) setRates(rate ? [rate] : []);
       })
       .catch((e) => {
         if (live) setError(friendly(e));
@@ -102,7 +111,8 @@ export default function AlertEditor() {
     };
   }, [pair]);
   const base = pair.split('/')[0];
-  const rate = rates.find((r) => r.currencyPair === pair),
+  const displayRate = rates.find((r) => r.currencyPair === pair);
+  const rate = displayRate?.kind === 'intraday' && fresh(displayRate) ? displayRate : undefined,
     satisfied = rate && Number(target) > 0 && matches(rate.rate, Number(target), condition);
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -231,17 +241,23 @@ export default function AlertEditor() {
                 </select>
               </label>
             </div>
-            {rate ? (
+            {displayRate ? (
               <div className="reference-box">
                 <Currency pair={pair} />
                 <div>
-                  <strong>{format(rate.rate)}</strong>
-                  <small>{new Date(rate.providerTimestamp).toLocaleString('en-NZ')}</small>
+                  <strong>{format(displayRate.rate)}</strong>
+                  <small>
+                    {displayRateLabel(displayRate)} ·{' '}
+                    {new Date(displayRate.providerTimestamp).toLocaleString('en-NZ')}
+                  </small>
                 </div>
               </div>
             ) : loaded && !rateLoading && !error ? (
-              <p role="status">Market rate unavailable for this pair.</p>
+              <p role="status">No rate available for this pair.</p>
             ) : null}
+            {displayRate && !rate && (
+              <p role="status">A fresh market rate is required to save or test an alert.</p>
+            )}
             <label>
               Your target rate
               <input

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Search } from 'lucide-react';
 import { api } from './api';
-import { Currency, format, friendly } from './ui';
+import { Currency, displayRateLabel, format, friendly } from './ui';
 import { CURRENCY_CODES, type Rate } from '../shared/domain';
 export default function WorldRates({
   onSelect,
@@ -10,7 +10,9 @@ export default function WorldRates({
   onSelect: (pair: string) => void;
   onRates: (rates: Rate[]) => void;
 }) {
-  const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([]);
+  const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>(() =>
+    CURRENCY_CODES.map((code) => ({ code, name: code })),
+  );
   const [base, setBase] = useState('NZD');
   const [search, setSearch] = useState('');
   const [rates, setRates] = useState<Rate[]>([]);
@@ -22,12 +24,12 @@ export default function WorldRates({
     let live = true;
     api<{ code: string; name: string }[]>('/currencies')
       .then((rows) => {
-        if (live)
-          setCurrencies(rows.filter((row) => CURRENCY_CODES.some((code) => code === row.code)));
+        if (live && rows.length) {
+          const names = new Map(rows.map(({ code, name }) => [code, name]));
+          setCurrencies(CURRENCY_CODES.map((code) => ({ code, name: names.get(code) ?? code })));
+        }
       })
-      .catch((e) => {
-        if (live) setError(friendly(e));
-      });
+      .catch(() => {});
     return () => {
       live = false;
     };
@@ -38,7 +40,7 @@ export default function WorldRates({
     setError('');
     setRates([]);
     setPageSize(12);
-    api<Rate[]>('/world-rates?source=market&base=' + base)
+    api<Rate[]>('/world-rates?source=display&base=' + base)
       .then((rows) => {
         if (live) {
           setRates(rows);
@@ -67,7 +69,7 @@ export default function WorldRates({
       <div className="section-heading">
         <div>
           <h2>
-            Around the world <span className="badge">MARKET RATES</span>
+            Around the world <span className="badge">EXCHANGE RATES</span>
           </h2>
           <p>Select a currency to view its history.</p>
         </div>
@@ -79,7 +81,6 @@ export default function WorldRates({
         <label>
           From currency
           <select value={base} onChange={(e) => setBase(e.target.value)}>
-            {!currencies.length && <option value="NZD">NZD</option>}
             {currencies.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.code}
@@ -103,7 +104,6 @@ export default function WorldRates({
         </label>
       </div>
       <p className="muted">
-        <a href="https://exchangerate.dev/">Rates by Exchangerate.dev</a> ?
         {loading
           ? 'Loading currencies...'
           : visible.length + ' available currencies | 1 ' + base + ' equals the amount shown'}
@@ -129,12 +129,12 @@ export default function WorldRates({
                   <small>{r.currencyPair.split('/')[1]}</small>
                 </div>
                 <div className="rate-meta muted">
-                  As of {new Date(r.providerTimestamp).toLocaleString('en-NZ')}
+                  {displayRateLabel(r)} · {new Date(r.providerTimestamp).toLocaleString('en-NZ')}
                 </div>
               </button>
             ))}
           </div>
-          {!visible.length && <div className="empty">No market rates match your selection.</div>}
+          {!visible.length && <div className="empty">No exchange rates match your selection.</div>}
           {visible.length > pageSize && (
             <button className="button outline small" onClick={() => setPageSize((n) => n + 12)}>
               Show more currencies ({visible.length - pageSize} remaining)

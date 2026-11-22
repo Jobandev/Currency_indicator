@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CURRENCY_CODES, type Rate } from '../shared/domain.js';
+import { adminReady, db } from './firebase.js';
 const featuredCodes = new Set<string>(CURRENCY_CODES);
 const currencySchema = z.array(
   z.object({ iso_code: z.string(), name: z.string(), type: z.string() }),
@@ -33,30 +34,54 @@ export async function currencies() {
   catalogAt = Date.now();
   return catalog;
 }
-export async function worldRates(base: string) {
-  const list = await currencies();
-  if (!list.some((c) => c.code === base)) throw new Error('Unsupported base currency');
+export async function worldRates(base: string, allowCached = false) {
+  if (!featuredCodes.has(base)) throw new Error('Unsupported base currency');
   const existing = cache.get(base);
   if (existing && Date.now() - existing.at < 15 * 60000) return existing.rates;
   if (!pending.has(base))
     pending.set(
       base,
       (async () => {
-        const allowed = new Set(list.map((c) => c.code));
-        const rows = rateSchema.parse(await request('rates?base=' + encodeURIComponent(base)));
-        const rates = rows
-          .filter((r) => r.base === base && r.quote !== base && allowed.has(r.quote))
-          .map((r) => ({
-            currencyPair: r.base + '/' + r.quote,
-            rate: r.rate,
-            provider: 'Frankfurter daily reference',
-            providerTimestamp: r.date + 'T00:00:00Z',
-            fetchedAt: Date.now(),
-          }));
-        if (!rates.length) throw new Error('No reference rates available for this currency');
-        cache.set(base, { at: Date.now(), rates });
+        const ref =
+          adminReady && process.env.FIREBASE_PROJECT_ID
+            ? db.collection('worldRateSnapshots').doc(base)
+            : undefined;
+        const stored = await ref
+          ?.get()
+          .then((snapshot) => snapshot.data() as { at: number; rates: Rate[] } | undefined)
+          .catch(() => undefined);
+        if (stored?.rates.length && Date.now() - stored.at < 15 * 60000) {
+          cache.set(base, stored);
+          return stored.rates;
+        }
+        let rates: Rate[];
+        try {
+          const rows = rateSchema.parse(await request('rates?base=' + encodeURIComponent(base)));
+          rates = rows
+            .filter((r) => r.base === base && r.quote !== base && featuredCodes.has(r.quote))
+            .map((r) => ({
+              currencyPair: r.base + '/' + r.quote,
+              rate: r.rate,
+              provider: 'Frankfurter',
+              providerTimestamp: r.date + 'T00:00:00Z',
+              fetchedAt: Date.now(),
+            }));
+          if (!rates.length) throw new Error('No reference rates available for this currency');
+        } catch (error) {
+          if (stored?.rates.length) cache.set(base, stored);
+          throw error;
+        }
+        const snapshot = { at: Date.now(), rates };
+        cache.set(base, snapshot);
+        await ref?.set(snapshot).catch(() => {});
         return rates;
       })().finally(() => pending.delete(base)),
     );
-  return pending.get(base)!;
+  try {
+    return await pending.get(base)!;
+  } catch (error) {
+    const cached = cache.get(base);
+    if (allowCached && cached) return cached.rates;
+    throw error;
+  }
 }
