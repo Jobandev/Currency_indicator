@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react';
+import { Download, X } from 'lucide-react';
 
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: string }>;
 }
 
+const dismissedKey = 'ratewatch-install-popup-dismissed';
+
 export default function InstallAction() {
   const [prompt, setPrompt] = useState<InstallEvent>();
+  const [open, setOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem(dismissedKey) !== 'true';
+    } catch {
+      return true;
+    }
+  });
+  const [manual, setManual] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [installed, setInstalled] = useState(
     () =>
       matchMedia('(display-mode: standalone)').matches ||
@@ -36,26 +48,71 @@ export default function InstallAction() {
     };
   }, []);
 
+  function dismiss() {
+    setOpen(false);
+    try {
+      sessionStorage.setItem(dismissedKey, 'true');
+    } catch {
+      // The popup still stays closed while the app is open.
+    }
+  }
+
   async function install() {
-    if (!prompt) return;
+    if (!prompt || installing) return;
+    setInstalling(true);
     try {
       await prompt.prompt();
       if ((await prompt.userChoice).outcome === 'accepted') setInstalled(true);
+      dismiss();
+    } catch {
+      // Keep the popup open so the visitor can use the browser's install menu.
     } finally {
+      setManual(true);
+      setInstalling(false);
       setPrompt(undefined);
     }
   }
 
+  if (installed || (!prompt && !ios && !manual)) return null;
+
   return (
-    <div className="install-actions">
-      {!installed &&
-        (prompt ? (
-          <button className="button secondary" onClick={() => void install()}>
-            Install RateWatch
-          </button>
-        ) : ios ? (
-          <p>Open in Safari → Share → Add to Home Screen → Add.</p>
-        ) : null)}
+    <div className="install-widget">
+      <button
+        className="button install-trigger"
+        aria-expanded={open}
+        aria-controls={open ? 'install-popup' : undefined}
+        onClick={open ? dismiss : () => setOpen(true)}
+      >
+        <Download size={15} aria-hidden="true" /> Install
+      </button>
+      {open && (
+        <section id="install-popup" className="install-popup" aria-labelledby="install-title">
+          <div className="install-popup-heading">
+            <h2 id="install-title">Install RateWatch</h2>
+            <button type="button" aria-label="Close install popup" onClick={dismiss}>
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          {prompt ? (
+            <>
+              <p>Open RateWatch directly from your device.</p>
+              <button
+                className="button primary"
+                disabled={installing}
+                onClick={() => void install()}
+              >
+                Install app
+              </button>
+            </>
+          ) : (
+            <p>
+              {ios
+                ? 'In Safari, tap Share, then Add to Home Screen and Add.'
+                : 'Open your browser menu and look for the option to install RateWatch.'}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

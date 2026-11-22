@@ -16,7 +16,6 @@ import {
 import { ArrowRight, Check, Globe2, Mail, Trash2, Bell } from 'lucide-react';
 import { PAIRS } from '../shared/domain';
 import PushSettings from './PushSettings';
-import InstallAction from './InstallAction';
 import { auth } from './firebase';
 import { api } from './api';
 import { Footer, friendly, PublicHeader, Session, Shell, Toast } from './ui';
@@ -483,7 +482,6 @@ export function Profile() {
         </section>
       </div>
       {user && <PushSettings key={user.uid} uid={user.uid} />}
-      <InstallAction />
     </Shell>
   );
 }

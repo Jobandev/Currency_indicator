@@ -13,7 +13,6 @@ import {
 import { PublicHeader, Footer, Session } from './ui';
 import Converter from './Converter';
 import HistoryPreview from './HistoryPreview';
-import InstallAction from './InstallAction';
 import RateAtmosphere from './RateAtmosphere';
 import ScrollReveal from './ScrollReveal';
 import ProviderLinks from './ProviderLinks';
@@ -213,10 +212,6 @@ export default function Landing() {
           <Link className="button light" to="/register">
             Start watching for free <ArrowUpRight size={18} />
           </Link>
-        </section>
-        <section className="section install-section">
-          <h2>Take RateWatch with you</h2>
-          <InstallAction />
         </section>
       </main>
       <Footer />

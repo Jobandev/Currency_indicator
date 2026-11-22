@@ -14,6 +14,7 @@ import { auth } from './firebase';
 import { Footer, PublicHeader, Session, Toast } from './ui';
 import { policyRedirects, publicPage } from '../shared/public-pages';
 import Landing from './Landing';
+import InstallAction from './InstallAction';
 const Unsubscribe = lazy(() => import('./Unsubscribe'));
 const CurrencyPair = lazy(() => import('./CurrencyPair'));
 const Planner = lazy(() => import('./Planner'));
@@ -158,6 +159,7 @@ export default function App() {
             />
           </Routes>
         </Suspense>
+        <InstallAction />
         {toast && (
           <div className="toast" role="status">
             <Bell size={17} />

@@ -1,4 +1,3 @@
-import InstallAction from './InstallAction';
 import WorldRates from './WorldRates';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -498,7 +497,6 @@ export default function Dashboard() {
         <Link className="text-link" to="/planner">
           Transfer planner
         </Link>
-        <InstallAction />
       </section>
       <section id="notifications" className="notification-section">
         <div className="section-heading">
