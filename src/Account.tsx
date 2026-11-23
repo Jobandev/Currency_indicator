@@ -13,7 +13,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
-import { ArrowRight, Check, Globe2, Mail, Trash2, Bell } from 'lucide-react';
+import { ArrowRight, Check, Globe2, Mail, Trash2, Bell, MessageCircle } from 'lucide-react';
 import { PAIRS } from '../shared/domain';
 import PushSettings from './PushSettings';
 import { auth } from './firebase';
@@ -300,8 +300,10 @@ export function Profile() {
     [rateTipPair, setRateTipPair] = useState<string>('NZD/INR'),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
-    [loaded, setLoaded] = useState(false);
+    [loaded, setLoaded] = useState(false),
+    [supportOwner, setSupportOwner] = useState<string>();
   useEffect(() => {
+    const controller = new AbortController();
     api<{
       name: string;
       notificationPreferences?: { email: boolean };
@@ -309,8 +311,11 @@ export function Profile() {
       digestPair?: string;
       rateTips?: boolean;
       rateTipPair?: string;
-    }>('/profile')
+      supportInboxAccess?: boolean;
+    }>('/profile', { signal: controller.signal })
       .then((p) => {
+        if (controller.signal.aborted) return;
+        setSupportOwner(p.supportInboxAccess ? user?.uid : undefined);
         setName(p.name || user?.displayName || '');
         setEmail(p.notificationPreferences?.email !== false);
         setDigestFrequency(p.digestFrequency || 'off');
@@ -319,7 +324,10 @@ export function Profile() {
         setRateTipPair(p.rateTipPair || 'NZD/INR');
         setLoaded(true);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e.message);
+      });
+    return () => controller.abort();
   }, [user]);
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -345,6 +353,11 @@ export function Profile() {
           <h1>Your account.</h1>
           <p>A few details to make RateWatch yours.</p>
         </div>
+        {supportOwner && supportOwner === user?.uid && (
+          <Link className="button" to="/support/inbox">
+            <MessageCircle size={16} aria-hidden="true" /> Support Inbox
+          </Link>
+        )}
       </div>
       <div className="settings-grid">
         <section className="card editor">

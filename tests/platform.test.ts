@@ -1063,6 +1063,21 @@ describe('private support chat', () => {
     expect(other.body).toEqual([]);
   });
 
+  it('reports Settings shortcut access only for the verified inbox owner', async () => {
+    configureSupport();
+    for (const [account, expected] of [
+      ['owner', true],
+      ['unverified', false],
+      ['outsider', false],
+    ]) {
+      const profile = await request(app)
+        .get('/api/profile')
+        .set('Authorization', 'Bearer ' + account)
+        .expect(200);
+      expect(profile.body.supportInboxAccess).toBe(expected);
+    }
+  });
+
   it('rejects unauthenticated, unverified, and other accounts from the inbox', async () => {
     configureSupport();
     await request(app).get('/api/support/inbox').expect(401);

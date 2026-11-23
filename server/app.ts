@@ -1,4 +1,4 @@
-import { supportChat, supportInbox } from './support.js';
+import { canAccessSupportInbox, supportChat, supportInbox } from './support.js';
 import { intradayConfigured, intradayRates } from './intraday.js';
 import { digestSchedule, unsubscribeDigest } from './digests.js';
 import { pushDevicesFor, setPushDevice } from './push.js';
@@ -201,7 +201,10 @@ app.post('/api/profile', async (_req, res) => {
   res.json({ ok: true });
 });
 app.get('/api/profile', async (_req, res) =>
-  res.json((await db.collection('users').doc(res.locals.uid).get()).data() || {}),
+  res.json({
+    ...(await db.collection('users').doc(res.locals.uid).get()).data(),
+    supportInboxAccess: canAccessSupportInbox(res.locals.token),
+  }),
 );
 app.patch('/api/profile', async (req, res) => {
   await syncProfile(await auth.getUser(res.locals.uid));

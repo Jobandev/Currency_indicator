@@ -1,4 +1,5 @@
 ﻿import { createHash } from 'node:crypto';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -77,10 +78,13 @@ supportChat.post(
   },
 );
 
-supportInbox.use((_req, res, next) => {
+export function canAccessSupportInbox(token?: DecodedIdToken) {
   const owner = process.env.SUPPORT_INBOX_EMAIL?.trim().toLowerCase();
-  const token = res.locals.token;
-  if (!owner || token?.email_verified !== true || token.email?.toLowerCase() !== owner)
+  return Boolean(owner && token?.email_verified === true && token.email?.toLowerCase() === owner);
+}
+
+supportInbox.use((_req, res, next) => {
+  if (!canAccessSupportInbox(res.locals.token))
     throw new HttpError(403, 'This account does not have access to the support inbox.');
   next();
 });
