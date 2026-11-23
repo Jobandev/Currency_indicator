@@ -1081,3 +1081,49 @@ describe('private support chat', () => {
       .expect(400);
   });
 });
+
+it('clears support messages only for the owner and lets the visitor start a new chat', async () => {
+  vi.stubEnv('SUPPORT_INBOX_EMAIL', 'owner@example.test');
+  mocks.verifyIdToken.mockImplementation(async (value: string) => ({
+    uid: value,
+    email: value + '@example.test',
+    email_verified: true,
+  }));
+  const guest = 'a4085945-04a9-4e66-893e-6d02c75efc98';
+  await request(app)
+    .post('/api/support/chat')
+    .set('X-Support-Key', guest)
+    .send({ text: 'Old message' })
+    .expect(201);
+  const inbox = await request(app)
+    .get('/api/support/inbox')
+    .set('Authorization', 'Bearer owner')
+    .expect(200);
+  const id = inbox.body[0].id;
+  const path = '/api/support/inbox/' + id;
+  await request(app).delete(path).set('Authorization', 'Bearer outsider').expect(403);
+  await request(app).delete(path).set('Authorization', 'Bearer owner').expect(200);
+  expect(
+    [...records.keys()].some((path) => path.startsWith('supportThreads/' + id + '/messages/')),
+  ).toBe(false);
+  expect(
+    (await request(app).get('/api/support/chat').set('X-Support-Key', guest).expect(200)).body,
+  ).toEqual([]);
+  expect(
+    (await request(app).get('/api/support/inbox').set('Authorization', 'Bearer owner').expect(200))
+      .body,
+  ).toEqual([]);
+  await request(app).delete(path).set('Authorization', 'Bearer owner').expect(200);
+  await request(app)
+    .post('/api/support/chat')
+    .set('X-Support-Key', guest)
+    .send({ text: 'New conversation' })
+    .expect(201);
+  const reopened = await request(app)
+    .get('/api/support/chat')
+    .set('X-Support-Key', guest)
+    .expect(200);
+  expect(reopened.body.map((message: { text: string }) => message.text)).toEqual([
+    'New conversation',
+  ]);
+});

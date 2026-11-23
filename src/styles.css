@@ -3265,3 +3265,10 @@ legend {
     max-height: 25vh;
   }
 }
+
+.support-thread-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}

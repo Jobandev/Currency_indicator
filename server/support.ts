@@ -27,9 +27,11 @@ function visitorThread(value: unknown) {
 }
 
 async function messages(id: string) {
-  const snapshot = await threads()
-    .doc(id)
+  const ref = threads().doc(id);
+  const clearedAt = (await ref.get()).data()?.clearedAt ?? 0;
+  const snapshot = await ref
     .collection('messages')
+    .where('sentAt', '>', clearedAt)
     .orderBy('sentAt', 'desc')
     .limit(100)
     .get();
@@ -41,8 +43,14 @@ async function send(id: string, from: SupportMessage['from'], message: string) {
   const entry = ref.collection('messages').doc();
   const sentAt = await db.runTransaction(async (transaction) => {
     const previous = await transaction.get(ref);
-    if (from === 'support' && !previous.exists) throw new HttpError(404, 'Conversation not found.');
-    const timestamp = Math.max(Date.now(), (previous.data()?.updatedAt ?? 0) + 1);
+    const state = previous.data();
+    if (from === 'support' && !state?.updatedAt)
+      throw new HttpError(404, 'Conversation not found.');
+    const timestamp = Math.max(
+      Date.now(),
+      (state?.updatedAt ?? 0) + 1,
+      (state?.clearedAt ?? 0) + 1,
+    );
     transaction.set(entry, { from, text: message, sentAt: timestamp } satisfies SupportMessage);
     transaction.set(ref, { updatedAt: timestamp, latest: message, from }, { merge: true });
     return timestamp;
@@ -79,7 +87,11 @@ supportInbox.use((_req, res, next) => {
 
 supportInbox.get('/', async (_req, res) => {
   const snapshot = await threads().orderBy('updatedAt', 'desc').limit(100).get();
-  res.json(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  res.json(
+    snapshot.docs
+      .filter((doc) => doc.data().updatedAt)
+      .map((doc) => ({ id: doc.id, ...doc.data() })),
+  );
 });
 supportInbox.get('/:id', async (req, res) => {
   res.json(await messages(threadId.parse(req.params.id)));
@@ -88,4 +100,25 @@ supportInbox.post('/:id', async (req, res) => {
   res
     .status(201)
     .json(await send(threadId.parse(req.params.id), 'support', text.parse(req.body).text));
+});
+
+supportInbox.delete('/:id', async (req, res) => {
+  const ref = threads().doc(threadId.parse(req.params.id));
+  const clearedAt = await db.runTransaction(async (transaction) => {
+    const state = (await transaction.get(ref)).data();
+    if (!state) return 0;
+    if (!state.updatedAt) return state.clearedAt ?? 0;
+    const cutoff = Math.max(Date.now(), state.updatedAt);
+    transaction.set(ref, { clearedAt: cutoff });
+    return cutoff;
+  });
+  if (clearedAt) {
+    const old = ref.collection('messages').where('sentAt', '<=', clearedAt).limit(400);
+    for (let snapshot = await old.get(); !snapshot.empty; snapshot = await old.get()) {
+      const batch = db.batch();
+      for (const doc of snapshot.docs) batch.delete(doc.ref);
+      await batch.commit();
+    }
+  }
+  res.json({ ok: true, clearedAt });
 });
