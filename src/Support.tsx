@@ -4,7 +4,7 @@ import { api } from './api';
 
 type Message = { id: string; from: 'visitor' | 'support'; text: string; sentAt: number };
 
-export function useSupportPolling<T>(path: string, visitorKey?: string) {
+export function useSupportPolling<T>(path: string, visitorKey?: string, version = 0) {
   const [data, setData] = useState<T>();
   const [error, setError] = useState('');
   useEffect(() => {
@@ -34,7 +34,7 @@ export function useSupportPolling<T>(path: string, visitorKey?: string) {
       abort.abort();
       window.clearTimeout(timer);
     };
-  }, [path, visitorKey]);
+  }, [path, visitorKey, version]);
   return { data, error };
 }
 
@@ -47,14 +47,13 @@ export function SupportConversation({
   visitorKey?: string;
   staff?: boolean;
 }) {
-  const { data, error } = useSupportPolling<Message[]>(path, visitorKey);
-  const [sent, setSent] = useState<Message>();
+  const [version, setVersion] = useState(0);
+  const { data, error } = useSupportPolling<Message[]>(path, visitorKey, version);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const list = useRef<HTMLDivElement>(null);
-  const messages =
-    sent && !data?.some((message) => message.id === sent.id) ? [...(data || []), sent] : data;
+  const messages = data;
   const lastMessage = messages?.at(-1)?.id;
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
@@ -66,13 +65,12 @@ export function SupportConversation({
     setSending(true);
     setSendError('');
     try {
-      setSent(
-        await api<Message>(path, {
-          method: 'POST',
-          headers: visitorKey ? { 'X-Support-Key': visitorKey } : undefined,
-          body: JSON.stringify({ text }),
-        }),
-      );
+      await api<Message>(path, {
+        method: 'POST',
+        headers: visitorKey ? { 'X-Support-Key': visitorKey } : undefined,
+        body: JSON.stringify({ text }),
+      });
+      setVersion((current) => current + 1);
       setText('');
     } catch (error) {
       setSendError(error instanceof Error ? error.message : 'Message could not be sent.');
