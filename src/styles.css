@@ -2738,7 +2738,7 @@ legend {
   }
   .mobile-bottom-nav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     position: fixed;
     inset: auto 0 0;
     padding-bottom: env(safe-area-inset-bottom);
@@ -2753,7 +2753,7 @@ legend {
     padding: 0.55rem 0.25rem;
     min-height: 48px;
     color: #18382b;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
   }
   .mobile-bottom-nav a[aria-current='page'] {
     background: #e8f3ed;

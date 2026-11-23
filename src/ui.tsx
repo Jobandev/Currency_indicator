@@ -7,6 +7,7 @@ import {
   ChartNoAxesCombined,
   CheckCheck,
   CircleHelp,
+  House,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -158,18 +159,22 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <nav className="mobile-bottom-nav" aria-label="Workspace navigation">
+          <NavLink to="/" end>
+            <House size={18} aria-hidden="true" />
+            Home
+          </NavLink>
           <NavLink to="/dashboard" end>
             <LayoutDashboard size={18} aria-hidden="true" />
             Overview
           </NavLink>
-          <Link to="/charts">
+          <NavLink to="/charts" end>
             <ChartNoAxesCombined size={18} aria-hidden="true" />
-            Charts
-          </Link>
-          <Link to="/dashboard#alerts">
+            Chart
+          </NavLink>
+          <NavLink to="/alerts/new" end>
             <Bell size={18} aria-hidden="true" />
-            Alerts
-          </Link>
+            Alert
+          </NavLink>
           <NavLink to="/settings">
             <Settings size={18} aria-hidden="true" />
             Settings
