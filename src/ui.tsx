@@ -157,11 +157,11 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </header>
-        <nav className="mobile-bottom-nav" aria-label="Quick navigation">
-          <Link to="/">
+        <nav className="mobile-bottom-nav" aria-label="Workspace navigation">
+          <NavLink to="/dashboard" end>
             <LayoutDashboard size={18} aria-hidden="true" />
-            Home
-          </Link>
+            Overview
+          </NavLink>
           <Link to="/charts">
             <ChartNoAxesCombined size={18} aria-hidden="true" />
             Charts
@@ -172,7 +172,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
           <NavLink to="/settings">
             <Settings size={18} aria-hidden="true" />
-            Profile
+            Settings
           </NavLink>
         </nav>
         <main id="main-content" tabIndex={-1} className="workspace-main">

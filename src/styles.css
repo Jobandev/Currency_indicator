@@ -2755,6 +2755,10 @@ legend {
     color: #18382b;
     font-size: 0.875rem;
   }
+  .mobile-bottom-nav a[aria-current='page'] {
+    background: #e8f3ed;
+    font-weight: 700;
+  }
   .workspace {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }

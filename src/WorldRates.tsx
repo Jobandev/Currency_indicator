@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { api } from './api';
 import { Currency, displayRateLabel, format, friendly } from './ui';
 import { CURRENCY_CODES, type Rate } from '../shared/domain';
@@ -14,7 +14,7 @@ export default function WorldRates({
     CURRENCY_CODES.map((code) => ({ code, name: code })),
   );
   const [base, setBase] = useState('NZD');
-  const [search, setSearch] = useState('');
+  const [selectedPair, setSelectedPair] = useState('');
   const [rates, setRates] = useState<Rate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,13 +57,9 @@ export default function WorldRates({
       live = false;
     };
   }, [base, refresh, onRates]);
-  const query = search.trim().toLowerCase();
-  const visible = rates.filter((r) => {
-    const code = r.currencyPair.split('/')[1];
-    return (code + ' ' + currencies.find((c) => c.code === code)?.name)
-      .toLowerCase()
-      .includes(query);
-  });
+  const currencyNames = new Map(currencies.map(({ code, name }) => [code, name]));
+  const matchingRate = rates.find((rate) => rate.currencyPair === selectedPair);
+  const visible = matchingRate ? [matchingRate] : rates;
   return (
     <section aria-label="World currency rates">
       <div className="section-heading">
@@ -71,7 +67,7 @@ export default function WorldRates({
           <h2>
             Around the world <span className="badge">EXCHANGE RATES</span>
           </h2>
-          <p>Select a currency to view its history.</p>
+          <p>Choose a currency pair or select a rate card to view its history.</p>
         </div>
         <button className="subtle" disabled={loading} onClick={() => setRefresh((n) => n + 1)}>
           <RefreshCw size={14} /> Refresh rates
@@ -80,27 +76,43 @@ export default function WorldRates({
       <div className="world-controls">
         <label>
           From currency
-          <select value={base} onChange={(e) => setBase(e.target.value)}>
+          <select
+            value={base}
+            onChange={(e) => {
+              setBase(e.target.value);
+              setSelectedPair('');
+            }}
+          >
             {currencies.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.code}
+                {c.code === c.name ? c.code : `${c.code} – ${c.name}`}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span>
-            <Search size={14} /> Find a currency
-          </span>
-          <input
-            type="search"
-            placeholder="Search currency name or code, e.g. Japan or JPY"
-            value={search}
+          To currency
+          <select
+            value={matchingRate?.currencyPair ?? ''}
+            disabled={loading || !!error || !rates.length}
             onChange={(e) => {
-              setSearch(e.target.value);
+              const pair = e.target.value;
+              setSelectedPair(pair);
               setPageSize(12);
+              if (pair) onSelect(pair);
             }}
-          />
+          >
+            <option value="">All currencies</option>
+            {rates.map(({ currencyPair }) => {
+              const code = currencyPair.split('/')[1];
+              const name = currencyNames.get(code);
+              return (
+                <option key={currencyPair} value={currencyPair}>
+                  {name && name !== code ? `${code} – ${name}` : code}
+                </option>
+              );
+            })}
+          </select>
         </label>
       </div>
       <p className="muted">
