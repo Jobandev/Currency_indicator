@@ -2759,6 +2759,7 @@ legend {
     background: #e8f3ed;
     font-weight: 700;
   }
+  #root:has(> .mobile-bottom-nav),
   .workspace {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }

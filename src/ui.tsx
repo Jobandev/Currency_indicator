@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { signOut, sendEmailVerification, type User } from 'firebase/auth';
 import {
   ArrowUpRight,
@@ -67,9 +67,42 @@ export function useRates() {
   }, []);
   return { rates, error, loading, load };
 }
+function MobileBottomNav() {
+  return (
+    <nav className="mobile-bottom-nav" aria-label="Workspace navigation">
+      <NavLink to="/" end>
+        <House size={18} aria-hidden="true" />
+        Home
+      </NavLink>
+      <NavLink to="/dashboard" end>
+        <LayoutDashboard size={18} aria-hidden="true" />
+        Overview
+      </NavLink>
+      <NavLink to="/charts" end>
+        <ChartNoAxesCombined size={18} aria-hidden="true" />
+        Chart
+      </NavLink>
+      <NavLink to="/alerts/new" end>
+        <Bell size={18} aria-hidden="true" />
+        Alert
+      </NavLink>
+      <NavLink to="/settings">
+        <Settings size={18} aria-hidden="true" />
+        Settings
+      </NavLink>
+    </nav>
+  );
+}
 export function PublicHeader() {
   const { user } = useContext(Session);
-  return <PublicNavigation signedIn={Boolean(user)} />;
+  const { pathname } = useLocation();
+  const path = pathname.replace(/\/$/, '');
+  return (
+    <>
+      <PublicNavigation signedIn={Boolean(user)} />
+      {(path === '' || path === '/charts') && <MobileBottomNav />}
+    </>
+  );
 }
 export function Footer() {
   return (
@@ -158,28 +191,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </header>
-        <nav className="mobile-bottom-nav" aria-label="Workspace navigation">
-          <NavLink to="/" end>
-            <House size={18} aria-hidden="true" />
-            Home
-          </NavLink>
-          <NavLink to="/dashboard" end>
-            <LayoutDashboard size={18} aria-hidden="true" />
-            Overview
-          </NavLink>
-          <NavLink to="/charts" end>
-            <ChartNoAxesCombined size={18} aria-hidden="true" />
-            Chart
-          </NavLink>
-          <NavLink to="/alerts/new" end>
-            <Bell size={18} aria-hidden="true" />
-            Alert
-          </NavLink>
-          <NavLink to="/settings">
-            <Settings size={18} aria-hidden="true" />
-            Settings
-          </NavLink>
-        </nav>
+        <MobileBottomNav />
         <main id="main-content" tabIndex={-1} className="workspace-main">
           {children}
         </main>
