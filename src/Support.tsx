@@ -167,11 +167,12 @@ export function SupportChat() {
         ref={trigger}
         type="button"
         className="button support-trigger"
+        aria-label="Chat with us"
         aria-expanded={open}
         aria-controls={open ? 'support-chat' : undefined}
         onClick={open ? close : show}
       >
-        <MessageCircle size={16} aria-hidden="true" /> Chat with us
+        <MessageCircle size={21} aria-hidden="true" />
       </button>
       {open && (
         <section
